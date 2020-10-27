@@ -15,14 +15,14 @@ def run_in_tf_session(check_initialized=True, update_seed=False):
     def wrap(f):
         @wraps(f)  # preserve bound method properties
         def wrapped_f(model, *args, **kwargs):
-            tf.reset_default_graph()
-            model._tf_graph = tf.get_default_graph()
+            tf.compat.v1.reset_default_graph()
+            model._tf_graph = tf.compat.v1.get_default_graph()
             if update_seed:
-                tf.set_random_seed(model.make_random_seed())
+                tf.compat.v1.set_random_seed(model.make_random_seed())
             if model.initialized_:  # model should be loaded from disk
                 model._tf_saver = tf.train.import_meta_graph(model._tf_meta_graph_filepath)
                 with model._tf_graph.as_default():
-                    with tf.Session(config=model._tf_session_config) as model._tf_session:
+                    with tf.compat.v1.Session(config=model._tf_session_config) as model._tf_session:
                         model._tf_saver.restore(model._tf_session, model._model_filepath)
                         model._init_tf_writers()
                         res = f(model, *args, **kwargs)
@@ -30,7 +30,7 @@ def run_in_tf_session(check_initialized=True, update_seed=False):
                 raise RuntimeError('`fit` or `init` must be called before calling `{0}`'.format(f.__name__))
             else:
                 with model._tf_graph.as_default():
-                    with tf.Session(config=model._tf_session_config) as model._tf_session:
+                    with tf.compat.v1.Session(config=model._tf_session_config) as model._tf_session:
                         model._make_tf_model()
                         model._init_tf_ops()
                         model._init_tf_writers()
@@ -54,7 +54,9 @@ class TensorFlowModel(BaseModel, DtypeMixin):
         self._tf_meta_graph_filepath = None
         self.update_working_paths(model_path=model_path, paths=paths)
 
-        self._tf_session_config = tf_session_config or tf.ConfigProto()
+
+
+        self._tf_session_config = tf_session_config or tf.compat.v1.ConfigProto()
         self.tf_saver_params = tf_saver_params or {}
         self.json_params = json_params or {}
         self.json_params.setdefault('sort_keys', True)
@@ -95,7 +97,7 @@ class TensorFlowModel(BaseModel, DtypeMixin):
         paths = paths or {}
         if not paths:
             paths = TensorFlowModel.compute_working_paths(model_path=model_path)
-        for k, v in paths.items():
+        for k, v in list(paths.items()):
             setattr(self, '_{0}'.format(k), v)
 
     def _make_tf_model(self):
@@ -103,16 +105,14 @@ class TensorFlowModel(BaseModel, DtypeMixin):
 
     def _init_tf_ops(self):
         """Initialize all TF variables and Saver"""
-        init_op = tf.global_variables_initializer()
+        init_op = tf.compat.v1.global_variables_initializer()
         self._tf_session.run(init_op)
-        self._tf_saver = tf.train.Saver(**self.tf_saver_params)
+        self._tf_saver = tf.compat.v1.train.Saver(**self.tf_saver_params)
 
     def _init_tf_writers(self):
-        self._tf_merged_summaries = tf.summary.merge_all()
-        self._tf_train_writer = tf.summary.FileWriter(self._train_summary_dirpath,
-                                                      self._tf_graph)
-        self._tf_val_writer = tf.summary.FileWriter(self._val_summary_dirpath,
-                                                    self._tf_graph)
+        self._tf_merged_summaries = tf.compat.v1.summary.merge_all()
+        #self._tf_train_writer = tf.compat.v1.summary.FileWriter(self._train_summary_dirpath,self._tf_graph)
+        #self._tf_val_writer = tf.compat.v1.summary.FileWriter(self._val_summary_dirpath,self._tf_graph)
 
     def _save_model(self, global_step=None):
         # (recursively) create all folders needed
@@ -145,6 +145,7 @@ class TensorFlowModel(BaseModel, DtypeMixin):
         # load params
         with open(paths['params_filepath'], 'r') as params_file:
             params = json.load(params_file)
+            #print(params)
         class_name = params.pop('__class_name__')
         if class_name != cls.__name__:
             raise RuntimeError("attempt to load {0} with class {1}".format(class_name, cls.__name__))
@@ -183,14 +184,13 @@ class TensorFlowModel(BaseModel, DtypeMixin):
     @run_in_tf_session()
     def get_tf_params(self, scope=None):
         """Get tf params of the model.
-
         Returns
         -------
         params : dict[str] = np.ndarray
             Evaluated parameters of the model.
         """
         weights = {}
-        for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope):
+        for var in tf.compat.v1.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope):
             key = var.name
             if scope and scope in key:
                 key = key.replace(scope, '')

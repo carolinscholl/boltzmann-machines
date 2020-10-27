@@ -28,7 +28,7 @@ def im_plot(X, n_width=10, n_height=10, shape=None, title=None,
     imshow_params.setdefault('interpolation', 'nearest')
 
     # plot
-    for i in xrange(n_height * n_width):
+    for i in range(n_height * n_width):
         if i < len(X):
             img = X[i]
             if shape is not None:
@@ -36,6 +36,7 @@ def im_plot(X, n_width=10, n_height=10, shape=None, title=None,
             ax = plt.subplot(n_height, n_width, i + 1)
             for d in ('bottom', 'top', 'left', 'right'):
                 ax.spines[d].set_linewidth(2.)
+                ax.grid(False)
             plt.tick_params(**tick_params())
             plt.imshow(img, **imshow_params)
     if title:
@@ -64,8 +65,8 @@ def im_reshape(X, n_width=10, n_height=10, shape=None, normalize=False):
     Y = Y.reshape(-1, *shape)
     Z = np.zeros((n_height * shape[0], n_width * shape[1], shape[2]), dtype=Y.dtype)
 
-    for i in xrange(n_height):
-        for j in xrange(n_width):
+    for i in range(n_height):
+        for j in range(n_width):
             ind_Y = n_height * i + j
             if ind_Y < len(Y):
                 Y_i = Y[ind_Y, ...]
@@ -124,7 +125,7 @@ def im_gif(matrices, im, fig, fname=None, title_func=None,
 
 def plot_confusion_matrix(C, labels=None, labels_fontsize=13, **heatmap_params):
     # default params
-    labels = labels or range(C.shape[0])
+    labels = labels or list(range(C.shape[0]))
     annot_fontsize = 14
     xy_label_fontsize = 21
 

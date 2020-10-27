@@ -1,9 +1,9 @@
 import numpy as np
 from copy import deepcopy
 
-from base import is_param_name, is_attribute_name
-from mixin import SeedMixin
-from bm.utils import write_during_training
+from .basef import is_param_name, is_attribute_name
+from .mixin import SeedMixin
+from bm.utils.utilsf import write_during_training
 
 
 class BaseModel(SeedMixin):
@@ -42,7 +42,7 @@ class BaseModel(SeedMixin):
         -------
         self
         """
-        for k, v in params.items():
+        for k, v in list(params.items()):
             if (is_param_name(k) or is_attribute_name(k)) and hasattr(self, k):
                 setattr(self, k, v)
             else:
@@ -51,7 +51,7 @@ class BaseModel(SeedMixin):
 
     def _serialize(self, params):
         """Class-specific parameters serialization routine."""
-        for k, v in params.items():
+        for k, v in list(params.items()):
             if isinstance(v, np.ndarray):
                 if v.size > 1e6:
                     msg = "WARNING: parameter `{0}` won't be serialized because it is too large:"

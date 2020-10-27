@@ -1,10 +1,11 @@
 import struct
 import pickle
+import sys
 import os.path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from rng import RNG
+from .rng import RNG
 
 
 def load_mnist(mode='train', path='.'):
@@ -53,7 +54,7 @@ def load_cifar10(mode='train', path='.'):
     dirpath = os.path.join(path, 'cifar-10-batches-py/')
     batch_size = 10000
     if mode == 'train':
-        fnames = ['data_batch_{0}'.format(i) for i in xrange(1, 5 + 1)]
+        fnames = ['data_batch_{0}'.format(i) for i in range(1, 5 + 1)]
     elif mode == 'test':
         fnames = ['test_batch']
     else:
@@ -174,7 +175,7 @@ def plot_cifar10(X, y, samples_per_class=7,
     imshow_params.setdefault('interpolation', 'none')
 
     num_classes = 10
-    classes = range(num_classes)
+    classes = list(range(num_classes))
     for c in classes:
         idxs = np.flatnonzero(y == c)
         idxs = RNG(seed=1337).choice(idxs, samples_per_class, replace=False)
@@ -195,7 +196,45 @@ def plot_cifar10(X, y, samples_per_class=7,
     plt.subplots_adjust(wspace=0, hspace=0)
 
 
+def load_cifar_circles(path, radius):
+    sumimages = np.empty(shape=(0, 1024))
+    for fn in os.listdir(path)[:7]:
+        if fn.find('_batch') > -1:
+            print(fn)
+            with open(path + fn, 'rb') as f:
+                if sys.version_info[0] > 2:
+                    u = pickle._Unpickler(f)
+                    u.encoding = 'latin1'
+                    p = u.load()
+                else:
+                    p = unpickle(f)
+                sumimages = np.vstack((sumimages,
+                                       np.array([np.sum([d[1024 * c:(c + 1) * 1024] for c in range(3)], axis=0) for d in p['data']])))
+
+    imgmean = np.median(sumimages)
+    binimages = ((np.array([np.sign(d - imgmean) for d in sumimages]) + 1) / 2).astype(bool)
+    # how many pixels?
+    x, y = np.ogrid[0:32, 0:32]
+    x, y = x - 16, y - 16
+    num_pixels = np.sum(np.sqrt(1. * x * x + 1. * y * y) <= radius)
+    data = np.empty(shape=(0, num_pixels))
+    print(('number of pixels: ' + str(num_pixels)))
+    # cut out as many circles as possible
+    for x0 in np.arange(np.ceil(radius), 32 - np.ceil(radius), np.ceil(radius * 2)):
+        for y0 in np.arange(np.ceil(radius), 32 - np.ceil(radius), np.ceil(radius * 2)):
+            # slice out a patch
+            inds = np.zeros((32, 32), dtype=bool)
+            # circular patch
+            x, y = np.ogrid[0:32, 0:32]
+            x = x - x0
+            y = y - y0
+            inds[np.sqrt(1. * x * x + 1. * y * y) <= radius] = True
+            data = np.vstack((data, binimages[:, inds.flatten()]))
+    print(('data size:',data.shape))
+    return data
+
+
 if __name__ == '__main__':
     # run corresponding tests
-    from testing import run_tests
+    from .testing import run_tests
     run_tests(__file__)

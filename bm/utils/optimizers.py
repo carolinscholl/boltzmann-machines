@@ -39,7 +39,7 @@ class MultiAdam(Optimizer):
 
         for p, g, m, v in zip(params, grads, ms, vs):
             lr_m = 1.
-            for key, value in self.lr_multipliers.iteritems():
+            for key, value in list(self.lr_multipliers.items()):
                 if p.name.startswith(key):
                     lr_m = value
                     break

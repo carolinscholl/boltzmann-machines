@@ -2,8 +2,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.distributions import Multinomial
 
-import env
-from base_rbm import BaseRBM
+from . import env
+from .base_rbm import BaseRBM
 from bm.layers import BernoulliLayer, MultinomialLayer, GaussianLayer
 
 

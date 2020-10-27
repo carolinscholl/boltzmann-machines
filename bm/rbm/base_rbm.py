@@ -1,10 +1,12 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow.core.framework import summary_pb2
+from tensorflow.contrib.distributions import Bernoulli
 
 from bm import EnergyBasedModel
-from bm.base import run_in_tf_session, is_attribute_name
-from bm.utils import (make_list_from, batch_iter, epoch_iter,
+from bm.base.tf_model import run_in_tf_session
+from bm.base.basef import is_attribute_name
+from bm.utils.utilsf import (make_list_from, batch_iter, epoch_iter,
                       write_during_training)
 from bm.utils.testing import assert_len, assert_shape
 
@@ -13,7 +15,6 @@ class BaseRBM(EnergyBasedModel):
     """
     A generic implementation of Restricted Boltzmann Machine
     with k-step Contrastive Divergence (CD-k) learning algorithm.
-
     Parameters
     ----------
     n_visible : positive int
@@ -50,6 +51,19 @@ class BaseRBM(EnergyBasedModel):
     dbm_first, dbm_last : bool
         Flag whether RBM is first or last in a stack of RBMs used
         for DBM pre-training to address "double counting evidence" problem [4].
+    prune : Boolean
+        If set to true, freeze_weights parameter is checked to be iterable. Weights are then masked
+        by this boolean masked. They are not updated anymore, the weights essentially do not exist.
+    freeze_weights : None or (n_visible, n_hidden) iterable
+        A boolean mask indicating which weights are frozen to 0. All elements that are 0
+        will remain 0 in the weights during training in order to prune the model.
+    filter_shape : None or tuple (int, int)
+        If active, each hidden unit will only have a receptive field with size as indicated by the tuple.
+        The RBM will thus not be fully conntected. Implemented with boolean masks for each
+        hidden unit. The receptive fields cover the input pixel by pixel, with each pixel being
+        the center of the receptive field once. That's why, at the moment, only works if the number
+        of visible and hidden units are equal.
+    double_rf : if set to true, each receptive fields will be duplicated in first layer: each hidden unit has two times the receptive field.
     metrics_config : dict
         Parameters that controls which metrics and how often they are computed.
         Possible (optional) commands:
@@ -80,7 +94,6 @@ class BaseRBM(EnergyBasedModel):
         Number of hidden activations to display during training (in TensorBoard).
     v_shape : (H, W) or (H, W, C) positive integer tuple
         Shape for displaying filters during training. C should be in {1, 3, 4}.
-
     References
     ----------
     [1] I. Goodfellow, Y. Bengio, and A. Courville. Deep Learning.
@@ -92,19 +105,23 @@ class BaseRBM(EnergyBasedModel):
     [4] R. Salakhutdinov and G. Hinton. Deep boltzmann machines.
         In AISTATS, pp. 448-455. 2009
     """
-    def __init__(self,
+    def __init__(self, n_particles=100,
                  n_visible=784, v_layer_cls=None, v_layer_params=None,
                  n_hidden=256, h_layer_cls=None, h_layer_params=None,
                  W_init=0.01, vb_init=0., hb_init=0., n_gibbs_steps=1,
                  learning_rate=0.01, momentum=0.9, max_epoch=10, batch_size=10, l2=1e-4,
-                 sample_v_states=False, sample_h_states=True, dropout=None,
+                 sample_v_states=True, sample_h_states=True, dropout=None,
                  sparsity_target=0.1, sparsity_cost=0., sparsity_damping=0.9,
-                 dbm_first=False, dbm_last=False,
-                 metrics_config=None, verbose=True, save_after_each_epoch=True,
+                 dbm_first=False, dbm_last=False, prune=False, freeze_weights=None, filter_shape=None, rf_mask=None, double_rf = False,
+                 metrics_config=None, verbose=True, save_after_each_epoch=False,
                  display_filters=0, display_hidden_activations=0, v_shape=(28, 28),
                  model_path='rbm_model/', *args, **kwargs):
         super(BaseRBM, self).__init__(model_path=model_path, *args, **kwargs)
         self.n_visible = n_visible
+
+        if double_rf == True:
+            assert n_hidden == 2*n_visible
+
         self.n_hidden = n_hidden
 
         v_layer_params = v_layer_params or {}
@@ -116,10 +133,79 @@ class BaseRBM(EnergyBasedModel):
         self._v_layer = v_layer_cls(**v_layer_params)
         self._h_layer = h_layer_cls(**h_layer_params)
 
+        #if prune is set to true and freeze_weights parameter exists and is iterable, create the mask accordingly:
+        if prune==True and hasattr(freeze_weights, '__iter__'):
+            self.freeze_weights = np.asarray(freeze_weights, dtype=bool)
+            assert_shape(self, 'freeze_weights', (self.n_visible, self.n_hidden))
+            print("Weights are frozen to 0, as indicated by freeze_weights mask.")
+            self.prune=True
+        else:
+            print('No pruning, array of ones is initialized')
+            # just make an array of ones, so that the weights will be unaffected
+            self.freeze_weights = np.ones((self.n_visible, self.n_hidden), dtype=bool)
+            self.prune=False
+
+        #if filter_shape parameter exists and is a tuple, create weight masks that lead to "receptive fields", i.e.
+        #each hidden unit is only connected to a defined number of visible unit, that cover a specific part of the input.
+        #if (filter_shape is not None and self.n_visible == self.n_hidden and isinstance(filter_shape, tuple)
+        if (filter_shape is not None and isinstance(filter_shape, tuple)
+        and filter_shape[0] < v_shape[0] and filter_shape[1] < v_shape[1]):
+            self.filter_shape = filter_shape
+            print(("Receptive fields active, shape ({},{}) as indicated by filter_shape parameter.".format(*self.filter_shape)))
+            v_2d_x = v_shape[0]
+            v_2d_y = v_shape[1]
+
+            filter_x = self.filter_shape[0]
+            filter_y = self.filter_shape[1]
+
+            # augment image (pad it with zeros)
+            augmented_image = np.zeros((v_2d_x+2*(filter_x//2), v_2d_y+2*(filter_y//2)))
+            # put ones in the center of the augmented image, with shape (nv_2d, nv_2d)
+            augmented_image[(filter_x//2):v_2d_x+(filter_x//2), filter_y//2:v_2d_y+(filter_x//2)] = 1
+
+            # now we make an appropriate weight mask for each hidden unit
+            # (each hidden unit just has a small window it sees of the image, all other weights to it are 0)
+            h_masks = [] # a list of masks, one for each hidden unit
+
+            # each idx/idy tuple points to the center of a receptive field
+            # start at index (filter_x//2, filter_y//2), i.e. the leftmost pixel of the actual image
+            for idx in range(filter_x//2,v_2d_x+filter_x//2): # for each row
+                for idy in range(filter_y//2,v_2d_y+filter_y//2): # for each column
+                    len_x = filter_x//2 + filter_x%2 # +1 for the center of the receptive field if it is an odd number
+                    len_y = filter_y//2 + filter_y%2 # +1 for the center of the receptive field if it is an odd number
+                    # cut out the filters from the augmented image
+                    h_filter = augmented_image[idx-filter_x//2:idx+len_x, idy-filter_y//2:idy+len_y] # +1 for the center of the receptive field
+                    # now make an augmented image of zeros again
+                    h_mask = np.zeros(augmented_image.shape, dtype=bool)
+                    # set the filter in this augmented image, so all but the ones just identified are set to 0, (idx, idy) gives center
+                    h_mask[idx-filter_x//2:idx+len_x, idy-filter_y//2:idy+len_y] = h_filter
+                    # cut out the image part from the augmented image again
+                    h_mask = h_mask[filter_x//2:filter_x//2+v_shape[0], filter_y//2:filter_y//2+v_shape[1]]
+                    h_masks.append(h_mask)
+
+                    if double_rf == True:
+                        h_masks.append(h_mask)
+
+            #  now create the final weight mask
+            self.rf_mask = np.ones((self.n_visible, self.n_hidden), dtype=bool)
+            for i in range(self.n_hidden): # for each hidden/visible unit
+                self.rf_mask[:,i] *= h_masks[i].flatten() # mask the input accordingly
+            self.rf_mask = np.array(self.rf_mask, dtype=bool)
+
+        else:
+            # otherwise just make an array of ones, so the weights will stay unaffected:
+            self.rf_mask = np.ones((self.n_visible, self.n_hidden), dtype=bool)
+            # and the receptive fields will just have the shape of the image itself:
+            # self.filter_shape = np.ones(v_shape, dtype=bool)
+            self.filter_shape = None
+
         self.W_init = W_init
         if hasattr(self.W_init, '__iter__'):
             self.W_init = np.asarray(self.W_init)
             assert_shape(self, 'W_init', (self.n_visible, self.n_hidden))
+            self.W_init *= self.freeze_weights
+            self.W_init *= self.rf_mask
+            # Multiply the initial weights with both masks (if they are inactive they are just ones), because updates are applied iteratively in sums (+dW)
 
         # Visible biases can be initialized with list of values,
         # because it is often helpful to initialize i-th visible bias
@@ -155,6 +241,8 @@ class BaseRBM(EnergyBasedModel):
         self.sample_h_states = sample_h_states
         self.sample_v_states = sample_v_states
         self.dropout = dropout
+
+        self.n_particles = n_particles
 
         self.sparsity_target = sparsity_target
         self.sparsity_cost = sparsity_cost
@@ -217,16 +305,22 @@ class BaseRBM(EnergyBasedModel):
         self._propup_multiplier = None
         self._propdown_multiplier = None
 
+        self._n_particles = None
+
         # tf input data
         self._learning_rate = None
         self._momentum = None
         self._n_gibbs_steps = None
         self._X_batch = None
+        self._n_runs = None
 
         # tf vars
         self._W = None
         self._hb = None
         self._vb = None
+
+        self._rf_mask = None
+        self._prune_mask = None
 
         self._dW = None
         self._dhb = None
@@ -234,18 +328,26 @@ class BaseRBM(EnergyBasedModel):
 
         self._q_means = None
 
+        self._v = None
+        self._v_new = None
+        self._H = []
+        self._H_new = []
+
         # tf operations
         self._train_op = None
         self._transform_op = None
         self._msre = None
         self._pll = None
         self._free_energy_op = None
+        self._sample_v = None
 
     def _make_constants(self):
         with tf.name_scope('constants'):
             self._n_visible = tf.constant(self.n_visible, dtype=tf.int32, name='n_visible')
             self._n_hidden = tf.constant(self.n_hidden, dtype=tf.int32, name='n_hidden')
             self._l2 = tf.constant(self.l2, dtype=self._tf_dtype, name='L2_coef')
+
+            self._n_particles = tf.constant(self.n_particles, dtype=tf.int32, name='n_particles')
 
             if self.dropout is not None:
                 self._dropout = tf.constant(self.dropout, dtype=self._tf_dtype, name='dropout_prob')
@@ -261,22 +363,55 @@ class BaseRBM(EnergyBasedModel):
             t2 = tf.cast(self._dbm_last, dtype=self._tf_dtype)
             self._propdown_multiplier = tf.identity(tf.add(t2, t), name='propdown_multiplier')
 
+
     def _make_placeholders(self):
         with tf.name_scope('input_data'):
-            self._learning_rate = tf.placeholder(self._tf_dtype, [], name='learning_rate')
-            self._momentum = tf.placeholder(self._tf_dtype, [], name='momentum')
-            self._n_gibbs_steps = tf.placeholder(tf.int32, [], name='n_gibbs_steps')
-            self._X_batch = tf.placeholder(self._tf_dtype, [None, self.n_visible], name='X_batch')
+            self._learning_rate = tf.compat.v1.placeholder(self._tf_dtype, [], name='learning_rate')
+            self._momentum = tf.compat.v1.placeholder(self._tf_dtype, [], name='momentum')
+            self._n_gibbs_steps = tf.compat.v1.placeholder(tf.int32, [], name='n_gibbs_steps')
+            self._X_batch = tf.compat.v1.placeholder(self._tf_dtype, [None, self.n_visible], name='X_batch')
+            self._n_runs = tf.compat.v1.placeholder(tf.int32, [], name='n_runs')
 
     def _make_vars(self):
+
+        with tf.name_scope('masks'):
+            # I created them as variables so that they get added to the graph collection                                            
+            self._mask = tf.Variable(self.freeze_weights, dtype = self._tf_dtype, name='prune_mask', trainable=False)                
+            self._rf_mask = tf.Variable(self.rf_mask, dtype = self._tf_dtype, name='rf_mask', trainable=False)                     
+
+        # Initiliaze them, because they are used right away                                                                      
+        init_masks_op = tf.compat.v1.variables_initializer(var_list=[self._mask, self._rf_mask])
+        self._tf_session.run(init_masks_op)
+
+        t_new = self._v_layer.init(batch_size=self._n_particles)
+        self._v = tf.Variable(t_new, dtype=self._tf_dtype, name='v')
+        t_new = self._v_layer.init(batch_size=self._n_particles)
+        self._v_new = tf.Variable(t_new, dtype=self._tf_dtype, name='v_new')
+        t_new = self._h_layer.init(batch_size=self._n_particles)
+        self._H = tf.Variable(t_new, dtype=self._tf_dtype, name='H')
+        t_new = self._h_layer.init(batch_size=self._n_particles)
+        self._H_new = tf.Variable(t_new, dtype=self._tf_dtype, name='H_new')        #
+
         # initialize weights and biases
         with tf.name_scope('weights'):
             if hasattr(self.W_init, '__iter__'):
                 W_init = tf.constant(self.W_init, dtype=self._tf_dtype)
             else:
-                W_init = tf.random_normal([self._n_visible, self._n_hidden],
+                W_init = tf.random.normal([self._n_visible, self._n_hidden],
                                            mean=0.0, stddev=self.W_init,
                                            seed=self.random_seed, dtype=self._tf_dtype)
+
+
+            W_init = tf.identity(W_init, name='W_init')
+
+            # Multiply the initial weights with both masks (if they are inactive they are just ones), because updates are applied iteratively in sums (+dW)
+            # we have to run these initial multiplications in sessions!
+            multiply_mask = tf.multiply(W_init, self._mask)
+            W_init = self._tf_session.run(multiply_mask)      # returns an array                                        
+
+            multiply_rf = tf.multiply(W_init, self._rf_mask)                                                           
+            W_init = self._tf_session.run(multiply_rf)
+
             W_init = tf.identity(W_init, name='W_init')
 
             vb_init = self.vb_init if hasattr(self.vb_init, '__iter__') else\
@@ -292,9 +427,10 @@ class BaseRBM(EnergyBasedModel):
             self._vb = tf.Variable(vb_init, dtype=self._tf_dtype, name='vb')
             self._hb = tf.Variable(hb_init, dtype=self._tf_dtype, name='hb')
 
-            tf.summary.histogram('W', self._W)
-            tf.summary.histogram('vb', self._vb)
-            tf.summary.histogram('hb', self._hb)
+
+            tf.compat.v1.summary.histogram('W', self._W)
+            tf.compat.v1.summary.histogram('vb', self._vb)
+            tf.compat.v1.summary.histogram('hb', self._hb)
 
         # visualize filters
         if self.display_filters:
@@ -314,13 +450,25 @@ class BaseRBM(EnergyBasedModel):
             dhb_init = tf.constant(self._dhb_init, dtype=self._tf_dtype) if self._dhb_init is not None else \
                        tf.zeros([self._n_hidden], dtype=self._tf_dtype)
 
+            dW_init = tf.identity(dW_init, name='W_init')
+
+            # Multiply the initial weights with both masks (if they are inactive they are just ones), because updates are applied iteratively in sums (+dW)
+            # we have to run these initial multiplications in sessions!
+            multiply_mask = tf.multiply(dW_init, self._mask)
+            dW_init = self._tf_session.run(multiply_mask)      # returns an array                                        
+
+            multiply_rf = tf.multiply(dW_init, self._rf_mask)                                                           
+            dW_init = self._tf_session.run(multiply_rf)
+
+            dW_init = tf.identity(dW_init, name='W_init')
+
             self._dW = tf.Variable(dW_init, name='dW')
             self._dvb = tf.Variable(dvb_init, name='dvb')
             self._dhb = tf.Variable(dhb_init, name='dhb')
 
-            tf.summary.histogram('dW', self._dW)
-            tf.summary.histogram('dvb', self._dvb)
-            tf.summary.histogram('dhb', self._dhb)
+            tf.compat.v1.summary.histogram('dW', self._dW)
+            tf.compat.v1.summary.histogram('dvb', self._dvb)
+            tf.compat.v1.summary.histogram('dhb', self._dhb)
 
         # initialize running means of hidden activations means
         with tf.name_scope('hidden_activations_means'):
@@ -328,12 +476,15 @@ class BaseRBM(EnergyBasedModel):
 
     def _propup(self, v):
         with tf.name_scope('prop_up'):
+
             t = tf.matmul(v, self._W)
         return t
 
     def _propdown(self, h):
         with tf.name_scope('prop_down'):
+
             t = tf.matmul(a=h, b=self._W, transpose_b=True)
+
         return t
 
     def _means_h_given_v(self, v):
@@ -379,7 +530,7 @@ class BaseRBM(EnergyBasedModel):
 
     def _make_gibbs_chain_fixed(self, h_states):
         v_states = v_means = h_means = None
-        for _ in xrange(self.n_gibbs_steps[0]):
+        for _ in range(self.n_gibbs_steps[0]):
             v_states, v_means, h_states, h_means = self._make_gibbs_step(h_states)
         return v_states, v_means, h_states, h_means
 
@@ -400,7 +551,7 @@ class BaseRBM(EnergyBasedModel):
                                      h_states,
                                      tf.zeros_like(h_states)],
                           back_prop=False,
-                          parallel_iterations=1)
+                          parallel_iterations=4)
 
         return v_states, v_means, h_states, h_means
 
@@ -437,29 +588,39 @@ class BaseRBM(EnergyBasedModel):
         # encoded data, used by the transform method
         with tf.name_scope('transform'):
             transform_op = tf.identity(h_means)
-            tf.add_to_collection('transform_op', transform_op)
+            tf.compat.v1.add_to_collection('transform_op', transform_op)
 
         # compute gradients estimates (= positive - negative associations)
         with tf.name_scope('grads_estimates'):
             # number of training examples might not be divisible by batch size
             N = tf.cast(tf.shape(self._X_batch)[0], dtype=self._tf_dtype)
             with tf.name_scope('dW'):
+
                 dW_positive = tf.matmul(self._X_batch, h0_means, transpose_a=True)
+                dW_positive_mask1 = tf.multiply(dW_positive, self._mask)                                 
+                dW_positive_mask2 = tf.multiply(dW_positive_mask1, self._rf_mask)                     
+
                 dW_negative = tf.matmul(v_states, h_means, transpose_a=True)
-                dW = (dW_positive - dW_negative) / N - self._l2 * self._W
+                dW_negative_mask1 = tf.multiply(dW_negative, self._mask)                                 
+                dW_negative_mask2 = tf.multiply(dW_negative_mask1, self._rf_mask)                         
+
+                # dW = (dW_positive - dW_negative) / N - self._l2 * self._W
+
+                dW = (dW_positive_mask2 - dW_negative_mask2) / N
+
             with tf.name_scope('dvb'):
                 dvb = tf.reduce_mean(self._X_batch - v_states, axis=0) # == sum / N
             with tf.name_scope('dhb'):
                 dhb = tf.reduce_mean(h0_means - h_means, axis=0) # == sum / N
 
         # apply sparsity targets if needed
-        with tf.name_scope('sparsity_targets'):
-            q_means = tf.reduce_sum(h_means, axis=0)
-            q_update = self._q_means.assign(self._sparsity_damping * self._q_means + \
-                                            (1 - self._sparsity_damping) * q_means)
-            sparsity_penalty = self._sparsity_cost * (q_update - self._sparsity_target)
-            dhb -= sparsity_penalty
-            dW  -= sparsity_penalty
+        # with tf.name_scope('sparsity_targets'):
+        #     q_means = tf.reduce_sum(h_means, axis=0)
+        #     q_update = self._q_means.assign(self._sparsity_damping * self._q_means + \
+        #                                     (1 - self._sparsity_damping) * q_means)
+        #     sparsity_penalty = self._sparsity_cost * (q_update - self._sparsity_target)
+        #     dhb -= sparsity_penalty
+        #     dW  -= sparsity_penalty
 
         # update parameters
         with tf.name_scope('momentum_updates'):
@@ -473,19 +634,30 @@ class BaseRBM(EnergyBasedModel):
                 dhb_update = self._dhb.assign(self._learning_rate * (self._momentum * self._dhb + dhb))
                 hb_update = self._hb.assign_add(dhb_update)
 
+        # with tf.name_scope('momentum_updates'):
+        #     with tf.name_scope('dW'):
+        #         dW_update = self._dW.assign(self._learning_rate * dW)
+        #         W_update = self._W.assign_add(dW_update)
+        #     with tf.name_scope('dvb'):
+        #         dvb_update = self._dvb.assign(self._learning_rate * dvb)
+        #         vb_update = self._vb.assign_add(dvb_update)
+        #     with tf.name_scope('dhb'):
+        #         dhb_update = self._dhb.assign(self._learning_rate * dhb)
+        #         hb_update = self._hb.assign_add(dhb_update)
+
         # assemble train_op
         with tf.name_scope('training_step'):
             train_op = tf.group(W_update, vb_update, hb_update)
-            tf.add_to_collection('train_op', train_op)
+            tf.compat.v1.add_to_collection('train_op', train_op)
 
         # compute metrics
         with tf.name_scope('L2_loss'):
             l2_loss = self._l2 * tf.nn.l2_loss(self._W)
-            tf.add_to_collection('l2_loss', l2_loss)
+            tf.compat.v1.add_to_collection('l2_loss', l2_loss)
 
         with tf.name_scope('mean_squared_recon_error'):
             msre = tf.reduce_mean(tf.square(self._X_batch - v_means))
-            tf.add_to_collection('msre', msre)
+            tf.compat.v1.add_to_collection('msre', msre)
 
         # Since reconstruction error is fairly poor measure of performance,
         # as this is not what CD-k learning algorithm aims to minimize [2],
@@ -498,23 +670,23 @@ class BaseRBM(EnergyBasedModel):
             # randomly corrupt one feature in each sample
             x_ = tf.identity(x)
             batch_size = tf.shape(x)[0]
-            pll_rand = tf.random_uniform([batch_size], minval=0, maxval=self._n_visible,
+            pll_rand = tf.random.uniform([batch_size], minval=0, maxval=self._n_visible,
                                          dtype=tf.int32)
             ind = tf.transpose([tf.range(batch_size), pll_rand])
-            m = tf.SparseTensor(indices=tf.to_int64(ind),
+            m = tf.SparseTensor(indices= tf.cast(ind, dtype=tf.int64),
                                 values=tf.ones_like(pll_rand, dtype=self._tf_dtype),
                                 dense_shape=tf.to_int64(tf.shape(x_)))
-            x_ = tf.multiply(x_, -tf.sparse_tensor_to_dense(m, default_value=-1))
+            x_ = tf.multiply(x_, -tf.sparse.to_dense(m, default_value=-1))
             x_ = tf.sparse_add(x_, m)
             x_ = tf.identity(x_, name='x_corrupted')
 
             pll = tf.cast(self._n_visible, dtype=self._tf_dtype) *\
-                  tf.log_sigmoid(self._free_energy(x_)-self._free_energy(x))
-            tf.add_to_collection('pll', pll)
+                  tf.math.log_sigmoid(self._free_energy(x_)-self._free_energy(x))
+            tf.compat.v1.add_to_collection('pll', pll)
 
         # add also free energy of input batch to collection (for feg)
         free_energy_op = self._free_energy(self._X_batch)
-        tf.add_to_collection('free_energy_op', free_energy_op)
+        tf.compat.v1.add_to_collection('free_energy_op', free_energy_op)
 
         # collect summaries
         if self.metrics_config['l2_loss']:
@@ -524,30 +696,110 @@ class BaseRBM(EnergyBasedModel):
         if self.metrics_config['pll']:
             tf.summary.scalar(self._metrics_names_map['pll'], pll)
 
+    def _make_particles_update(self, n_steps=None, sample=True, G_fed=False):
+        """Update negative particles by running Gibbs sampler
+        for specified number of steps.
+        """
+        if n_steps is None:
+            n_steps = self._n_gibbs_steps
+
+        # self._n_particles = 1
+        # self.sample_h_states = True
+
+        with tf.name_scope('gibbs_chain'):
+
+            logits = tf.zeros([self._n_runs, self._n_hidden])
+            T = Bernoulli(logits=logits).sample(seed=self.make_random_seed())
+            self._H = tf.cast(T, dtype=self._tf_dtype)
+            self._H_new = tf.cast(T, dtype=self._tf_dtype)
+            logits = tf.zeros([self._n_runs, self._n_visible])
+            T = Bernoulli(logits=logits).sample(seed=self.make_random_seed())
+            self._v = tf.cast(T, dtype=self._tf_dtype)
+            self._v_new = tf.cast(T, dtype=self._tf_dtype)
+
+            def cond(step, max_step, v, H, v_new, H_new):
+                return step < max_step
+
+            def body(step, max_step, v, H, v_new, H_new):
+                # v, H, v_new, H_new = self._make_gibbs_step(v, H, v_new, H_new,
+                #                                            update_v=True, sample=sample)
+                # v, H, v_new, H_new = self._make_gibbs_step(H)
+                v_new, _, H_new, _ = self._make_gibbs_step(H)
+                return step + 1, max_step, v_new, H_new, v, H  # swap particles
+
+            _, _, v, H, v_new, H_new = \
+                tf.while_loop(cond=cond, body=body,
+                              loop_vars=[tf.constant(0),
+                                         n_steps,
+                                         self._v, self._H,
+                                         self._v_new, self._H_new],
+                              parallel_iterations=10,
+                              back_prop=False)
+            # _, _, v, H, v_new, H_new = \
+            #     tf.while_loop(cond=cond, body=body,
+            #                   loop_vars=[tf.constant(0),
+            #                              n_steps,
+            #                              self._v, self._H,
+            #                              self._v_new, self._H_new],
+            #                   parallel_iterations=1,
+            #                   back_prop=False)
+
+            # v_update = self._v.assign(v)
+            # v_new_update = self._v_new.assign(v_new)
+            # H_updates = self._H.assign(H)
+            # H_new_updates = self._H_new.assign(H_new)
+            v_update = v#self._v.assign(v)
+            v_new_update = v_new#self._v_new.assign(v_new)
+            H_updates = H#self._H.assign(H)
+            H_new_updates = H_new#self._H_new.assign(H_new)
+        return v_update, H_updates, v_new_update, H_new_updates
+
+
+    def _make_sample_v(self):
+        with tf.name_scope('sample_v'):
+            # v_update, H_updates, v_new_update, H_new_updates = \
+            #     self._make_particles_update(n_steps=self._n_gibbs_steps)
+            v_update, H_updates, v_new_update, H_new_updates = \
+                self._make_particles_update(n_steps=self._n_gibbs_steps)
+            # with tf.control_dependencies([v_update, v_new_update] + H_updates + H_new_updates):
+            with tf.control_dependencies([v_update, v_new_update, H_updates, H_new_updates]):
+                v_s, h_s, _, _ = self._make_particles_update(sample=False)
+                # v_means, _, _, _ = self._make_particles_update(sample=False)
+                # sample_v = self._v.assign(v_means)
+                sample_v = tf.concat([v_s, h_s],1)
+                # sample_h = h_s
+        # tf.compat.v1.add_to_collection('sample_v', np.hstack((sample_v, sample_h)))
+        # tf.compat.v1.add_to_collection('sample_v', (sample_v, sample_h))
+        tf.compat.v1.add_to_collection('sample_v', sample_v)
+
     def _make_tf_model(self):
         self._make_constants()
         self._make_placeholders()
         self._make_vars()
         self._make_train_op()
+        self._make_sample_v()
 
-    def _make_tf_feed_dict(self, X_batch, n_gibbs_steps=None):
+    def _make_tf_feed_dict(self, X_batch=None, n_gibbs_steps=None, n_runs=None):
         d = {}
         d['learning_rate'] = self.learning_rate[min(self.epoch_, len(self.learning_rate) - 1)]
         d['momentum'] = self.momentum[min(self.epoch_, len(self.momentum) - 1)]
-        d['X_batch'] = X_batch
+        if X_batch is not None:
+            d['X_batch'] = X_batch
         if n_gibbs_steps is not None:
             d['n_gibbs_steps'] = n_gibbs_steps
         else:
             d['n_gibbs_steps'] = self.n_gibbs_steps[min(self.epoch_, len(self.n_gibbs_steps) - 1)]
+        if n_runs is not None:
+            d['n_runs'] = n_runs
 
         # prepend name of the scope, and append ':0'
         feed_dict = {}
-        for k, v in d.items():
+        for k, v in list(d.items()):
             feed_dict['input_data/{0}:0'.format(k)] = v
         return feed_dict
 
     def _train_epoch(self, X):
-        results = [[] for _ in xrange(len(self._train_metrics_map))]
+        results = [[] for _ in range(len(self._train_metrics_map))]
         for X_batch in batch_iter(X, self.batch_size,
                                   verbose=self.verbose):
             self.iter_ += 1
@@ -561,17 +813,17 @@ class BaseRBM(EnergyBasedModel):
                 for i, v in enumerate(values):
                     results[i].append(v)
                 train_s = outputs[len(self._train_metrics_map)]
-                self._tf_train_writer.add_summary(train_s, self.iter_)
+                #self._tf_train_writer.add_summary(train_s, self.iter_)
             else:
                 self._tf_session.run(self._train_op,
                                      feed_dict=self._make_tf_feed_dict(X_batch))
 
         # aggregate and return metrics values
-        results = map(lambda r: np.mean(r) if r else None, results)
-        return dict(zip(sorted(self._train_metrics_map), results))
+        results = [np.mean(r) if r else None for r in results]
+        return dict(list(zip(sorted(self._train_metrics_map), results)))
 
     def _run_val_metrics(self, X_val):
-        results = [[] for _ in xrange(len(self._val_metrics_map))]
+        results = [[] for _ in range(len(self._val_metrics_map))]
         for X_vb in batch_iter(X_val, batch_size=self.batch_size):
             run_ops = [v for _, v in sorted(self._val_metrics_map.items())]
             values = \
@@ -586,8 +838,8 @@ class BaseRBM(EnergyBasedModel):
             summary_value.append(summary_pb2.Summary.Value(tag=self._metrics_names_map[m],
                                                            simple_value=results[i]))
         val_s = summary_pb2.Summary(value=summary_value)
-        self._tf_val_writer.add_summary(val_s, self.iter_)
-        return dict(zip(sorted(self._val_metrics_map), results))
+        #self._tf_val_writer.add_summary(val_s, self.iter_)
+        return dict(list(zip(sorted(self._val_metrics_map), results)))
 
     def _run_feg(self, X, X_val):
         """Calculate difference between average free energies of subsets
@@ -597,17 +849,17 @@ class BaseRBM(EnergyBasedModel):
         growing, the model is overfitting and the value ("free energy gap")
         represents the amount of overfitting.
         """
-        self._free_energy_op = tf.get_collection('free_energy_op')[0]
+        self._free_energy_op = tf.compat.v1.get_collection('free_energy_op')[0]
 
         train_fes = []
-        for _, X_b in zip(xrange(self.metrics_config['n_batches_for_feg']),
+        for _, X_b in zip(list(range(self.metrics_config['n_batches_for_feg'])),
                           batch_iter(X, batch_size=self.batch_size)):
             train_fe = self._tf_session.run(self._free_energy_op,
                                             feed_dict=self._make_tf_feed_dict(X_b))
             train_fes.append(train_fe)
 
         val_fes = []
-        for _, X_vb in zip(xrange(self.metrics_config['n_batches_for_feg']),
+        for _, X_vb in zip(list(range(self.metrics_config['n_batches_for_feg'])),
                            batch_iter(X_val, batch_size=self.batch_size)):
             val_fe = self._tf_session.run(self._free_energy_op,
                                           feed_dict=self._make_tf_feed_dict(X_vb))
@@ -617,22 +869,22 @@ class BaseRBM(EnergyBasedModel):
         summary_value = [summary_pb2.Summary.Value(tag=self._metrics_names_map['feg'],
                                                    simple_value=feg)]
         feg_s = summary_pb2.Summary(value=summary_value)
-        self._tf_val_writer.add_summary(feg_s, self.iter_)
+        #self._tf_val_writer.add_summary(feg_s, self.iter_)
         return feg
 
     def _fit(self, X, X_val=None, *args, **kwargs):
         # load ops requested
-        self._train_op = tf.get_collection('train_op')[0]
+        self._train_op = tf.compat.v1.get_collection('train_op')[0]
 
         self._train_metrics_map = {}
         for m in self._train_metrics_names:
             if self.metrics_config[m]:
-                self._train_metrics_map[m] = tf.get_collection(m)[0]
+                self._train_metrics_map[m] = tf.compat.v1.get_collection(m)[0]
 
         self._val_metrics_map = {}
         for m in self._val_metrics_names:
             if self.metrics_config[m]:
-                self._val_metrics_map[m] = tf.get_collection(m)[0]
+                self._val_metrics_map[m] = tf.compat.v1.get_collection(m)[0]
 
         # main loop
         for self.epoch_ in epoch_iter(start_epoch=self.epoch_, max_epoch=self.max_epoch,
@@ -674,13 +926,24 @@ class BaseRBM(EnergyBasedModel):
         self.vb_init = weights['vb']
         self.hb_init = weights['hb']
 
+        # Retrieve the masks (if they are inactive, they will be just ones)    
+        masks = rbm.get_tf_params(scope='masks')
+        self._mask = masks['prune_mask']
+        self._rf_mask = masks['rf_mask']
+
         grads_accumulators = rbm.get_tf_params(scope='grads_accumulators')
         self._dW_init = grads_accumulators['dW']
         self._dvb_init = grads_accumulators['dvb']
         self._dhb_init = grads_accumulators['dhb']
 
+        # Make sure to mask the weights and gradient accumulators            
+        self._dW_init *= self._mask
+        self.W_init *= self._mask
+        self._dW_init *= self._rf_mask
+        self.W_init *= self._rf_mask
+
         # copy attributes
-        for k, v in vars(rbm).items():
+        for k, v in list(vars(rbm).items()):
             if is_attribute_name(k):
                 setattr(self, k, v)
 
@@ -689,7 +952,7 @@ class BaseRBM(EnergyBasedModel):
         """Compute hidden units' activation probabilities."""
         np_dtype = np_dtype or self._np_dtype
 
-        self._transform_op = tf.get_collection('transform_op')[0]
+        self._transform_op = tf.compat.v1.get_collection('transform_op')[0]
         H = np.zeros((len(X), self.n_hidden), dtype=np_dtype)
         start = 0
         for X_b in batch_iter(X, batch_size=self.batch_size,
@@ -698,3 +961,15 @@ class BaseRBM(EnergyBasedModel):
             H[start:(start + self.batch_size)] = H_b
             start += self.batch_size
         return H
+
+    @run_in_tf_session(update_seed=True)
+    def sample_gibbs(self, n_gibbs_steps=100, save_model=False, n_runs=1):
+        """Compute visible particle activation probabilities
+        after `n_gibbs_steps` chain iterations.
+        """
+        self._sample_v = tf.compat.v1.get_collection('sample_v')[0]
+        v = self._sample_v.eval(feed_dict=self._make_tf_feed_dict(n_gibbs_steps=n_gibbs_steps, n_runs=n_runs))
+        # if save_model:
+        #     self.n_samples_generated_ += n_gibbs_steps
+        #     self._save_model()
+        return v
