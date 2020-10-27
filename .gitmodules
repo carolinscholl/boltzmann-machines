@@ -1,0 +1,3 @@
+[submodule "rbm_utils"]
+	path = rbm_utils
+	url = https://github.com/martinosorb/rbm_utils.git
