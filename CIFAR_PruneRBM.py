@@ -41,7 +41,7 @@ def save_res(results_path, params=None, indices_hiddens=None, samples=None, mask
     if samples is not None:
         np.save(results_path+'samples.npy', np.array(samples).astype(np.bool))
 
-def main(pruning_criterion, percentile=50, n_hidden=90, n_pruning_session=3):
+def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3):
 
     # check that we have access to a GPU 
     if tf.test.gpu_device_name():
@@ -482,7 +482,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'RBM Pruning')
     parser.add_argument('pruning_criterion', help='Pruning criterion', type=check_validity_pruning_criterion)
     parser.add_argument('percentile', default=50, nargs='?', help='Percentage of weights removed in each iteration', type=int, choices=range(1, 100))
-    parser.add_argument('n_hidden', default=90, nargs='?', help='Number of hidden units', type=check_positive)
+    parser.add_argument('n_hidden', default=70, nargs='?', help='Number of hidden units', type=check_positive)
     parser.add_argument('n_pruning_session', default=3, nargs='?', help='Number of pruning sessions', type=check_positive)
 
     args = parser.parse_args()
