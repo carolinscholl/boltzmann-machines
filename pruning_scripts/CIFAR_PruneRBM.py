@@ -3,6 +3,7 @@ warnings.filterwarnings("ignore")
 
 import os
 import sys
+import env
 import tensorflow as tf
 import numpy as np
 import pickle
@@ -71,12 +72,12 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3):
 
     # check that image data is available
     try:
-        data = load_cifar_circles(os.path.join('data', 'cifar-10-batches-py/'), radius)
+        data = load_cifar_circles(os.path.join('..', 'data', 'cifar-10-batches-py/'), radius)
         pass
     except(FileNotFoundError, IOError):
         print("Cannot find CIFAR image data, please run data/fetch_cifar10.sh first")
         return
-        
+
     X_train = data[np.random.permutation(data.shape[0])[:n_train],:]
     X_val = data[np.random.permutation(data.shape[0])[:n_val],:]
 
@@ -86,7 +87,7 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3):
     n_sessions = n_pruning_session # number of pruning sessions
 
     # create results paths
-    top_folder = os.path.join('models', 'CIFAR','{}v'.format(nv)+'{}h'.format(nh))
+    top_folder = os.path.join('..', 'models', 'CIFAR','{}v'.format(nv)+'{}h'.format(nh))
     if not os.path.exists(top_folder):
         os.makedirs(top_folder)
     
