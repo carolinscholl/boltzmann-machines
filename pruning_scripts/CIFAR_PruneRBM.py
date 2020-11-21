@@ -11,7 +11,7 @@ from bm.rbm.rbm import BernoulliRBM, logit_mean
 from bm.utils.dataset import *
 from bm.init_BMs import * # helper functions to initialize, fit and load RBMs and 2 layer DBM
 from rbm_utils.stutils import *
-from rbm_utils.FIMDiag import * # functions to compute the diagonal of the FIM for RBMs
+from rbm_utils.fimdiag import * # functions to compute the diagonal of the FIM for RBMs
 from copy import deepcopy
 import argparse
 
