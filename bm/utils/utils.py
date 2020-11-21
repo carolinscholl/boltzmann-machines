@@ -167,6 +167,12 @@ def log_std_exp(x, log_mean_exp_x=None):
     M = log_mean_exp(2. * x)
     return 0.5 * log_diff_exp([2. * m, M])[0]
 
+def make_probs_binary(sample_probs):
+    ''' Convert activation probabilities to binary samples
+    '''
+    random_numbers = np.random.rand(sample_probs.shape[0], sample_probs.shape[1])
+    return (sample_probs>random_numbers).astype(bool)
+
 
 if __name__ == '__main__':
     # run corresponding tests
