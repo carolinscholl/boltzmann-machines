@@ -1,5 +1,6 @@
 import warnings
 warnings.filterwarnings("ignore")
+
 import os
 import sys
 import tensorflow as tf
@@ -12,8 +13,12 @@ from rbm_utils.stutils import *
 from rbm_utils.FIMDiag import * # functions to compute the diagonal of the FIM for RBMs
 from copy import deepcopy
 import argparse
+
 np.random.seed(42)
 
+# if machine has multiple GPUs only use first one
+#os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+#os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 class Struct:
     def __init__(self, **entries):
