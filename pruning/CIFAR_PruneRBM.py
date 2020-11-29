@@ -66,7 +66,7 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3):
             return dict
 
     # load the data
-    radius = 2.3
+    radius = 2.1
     n_train = 90000 
     n_val = n_train
 
