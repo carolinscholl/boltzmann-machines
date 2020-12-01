@@ -1,5 +1,5 @@
 # Pruning Boltzmann Machines
-This repository implements pruning mechanisms for generic RBM and DBM models. The base repository was extended with a pruning functionality which results in the removal of weights and units. Specifically, we use a local estimate of Fisher Information (FI) [1] to identify irrelevant parameters, remove them, and thereby model neurodevelopmental pruning [2].
+This repository implements pruning mechanisms for generic RBM and DBM models as discussed in our article [1]. The base repository was extended with a pruning functionality which results in the removal of weights and units. Specifically, we use a local estimate of Fisher Information (FI) [2] to identify irrelevant parameters, remove them, and thereby model neurodevelopmental pruning [3]. 
 
 ![visualization of pruning an RBM](visualization.png)
 
@@ -15,18 +15,18 @@ This repository implements pruning mechanisms for generic RBM and DBM models. Th
 * predefined stochastic layers: Bernoulli, Multinomial, Gaussian;
 * predefined RBMs: Bernoulli-Bernoulli,  Bernoulli-Multinomial, Gaussian-Bernoulli;
 * initialize weights randomly, from np.ndarray-s or from another RBM;
-* can be modified for greedy layer-wise pretraining of DBM (see notes or [3] for details);
+* can be modified for greedy layer-wise pretraining of DBM (see notes or [4] for details);
 * visualizations in Tensorboard.
 
 
 ### Deep Boltzmann Machines (DBM)
-* EM-like learning algorithm based on PCD and mean-field variational inference [3];
+* EM-like learning algorithm based on PCD and mean-field variational inference [4];
 * arbitrary number of layers of any types; 
 * initialize from greedy layer-wise pretrained RBMs (no random initialization for now);
 * whether to sample or use probabilities for visible and hidden units;
 * variable learning rate, momentum and number of Gibbs steps per weight update; 
 * regularization: L2 weight decay, maxnorm, sparsity targets;
-* estimate partition function using Annealed Importance Sampling [3]; 
+* estimate partition function using Annealed Importance Sampling [4]; 
 * estimate variational lower-bound (ELBO) using logẐ (currently only for 2-layer binary BM); 
 * generate samples after training; initialize negative particles (visible and hidden in all layers) from data;
 * DBM class can be used also for training RBM and its features: more powerful learning algorithm, estimating logẐ and ELBO, generating samples after training;
@@ -48,7 +48,7 @@ This repository implements pruning mechanisms for generic RBM and DBM models. Th
 * packages listed in requirements.txt
 
 ## How to install
-    git clone https://github.com/carolinscholl/PruningBMs.git
+    git clone --recursive https://github.com/carolinscholl/PruningBMs.git 
     cd PruningBMs
     pip install -r requirements.txt
 
@@ -84,9 +84,10 @@ Then run one of the pruning experiments, e.g. pruning based on weight magnitude 
 Again, check positional arguments for custom experiments with the -h flag. <strong>Caution:</strong> the default number of pruning sessions is set to 10 for experiments with DBMs trained on MNIST. The whole experiment may run several days.
 
 ## References 
+[1] C. Scholl, M.E. Rule and M.H. Hennig. The Information Theory of Developmental Pruning: Optimizing Global Network Architecture Using Local Synaptic Rules. [see preprint](https://www.biorxiv.org/content/10.1101/2020.11.30.403360v1)
 
-[1] G.E. Rule, M. Sorbaro and M.H. Hennig. Optimal Encoding in Stochastic Latent-Variable Models. In: Entropy, 2020. [see article](https://www.mdpi.com/1099-4300/22/7/714/htm)
+[2] M.E. Rule, M. Sorbaro and M.H. Hennig. Optimal Encoding in Stochastic Latent-Variable Models. In: Entropy, 2020. [see article](https://www.mdpi.com/1099-4300/22/7/714/htm)
 
-[2] G.M. Innocenti and D.J. Price. Exuberance in the development of cortical networks. In: Nature Reviews Neuroscience, pages 955-965, 2005. [see article](https://www.nature.com/articles/nrn1790/)
+[3] G.M. Innocenti and D.J. Price. Exuberance in the development of cortical networks. In: Nature Reviews Neuroscience, pages 955-965, 2005. [see article](https://www.nature.com/articles/nrn1790/)
 
-[3] R. Salakhutdinov and G. Hinton. Deep boltzmann machines. In: Artificial Intelligence and Statistics, pages 448–455, 2009. [see pdf](http://proceedings.mlr.press/v5/salakhutdinov09a/salakhutdinov09a.pdf)
+[4] R. Salakhutdinov and G. Hinton. Deep boltzmann machines. In: Artificial Intelligence and Statistics, pages 448–455, 2009. [see article](http://proceedings.mlr.press/v5/salakhutdinov09a/salakhutdinov09a.pdf)
