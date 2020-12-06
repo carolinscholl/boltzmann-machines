@@ -397,6 +397,7 @@ def create_baseline_classifier(top_folder=None):
     logreg = get_classifier_trained_on_raw_digits()
     evaluate_classifier_trained_on_raw_digits_on_random_patterns(top_folder, logreg)
     evaluate_classifier_trained_on_raw_digits_on_testdigits(top_folder, logreg)
+    return logreg
 
 def create_baseline_DBM(dbm_folder=None):
     if dbm_folder is None: 
@@ -408,11 +409,12 @@ def create_baseline_DBM(dbm_folder=None):
     # train/get baseline DBM
     dbm = get_initial_DBM(dbm_folder)
     evaluate_initial_DBM(dbm, dbm_folder)
+    return dbm
     
 if __name__ == '__main__':
 
-    create_baseline_classifier(os.path.join('..', 'models', 'MNIST'))
-    create_baseline_DBM(os.path.join('..', 'models', 'MNIST', 'initial'))
+    logreg = create_baseline_classifier(os.path.join('..', 'models', 'MNIST'))
+    dbm = create_baseline_DBM(os.path.join('..', 'models', 'MNIST', 'initial'))
 
 
 
