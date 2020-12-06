@@ -1033,10 +1033,10 @@ class DBM(EnergyBasedModel):
 
     # added this function to make the sampling from the DBM work!                
     @run_in_tf_session(update_seed=True)
-    def sample_gibbs(self, n_gibbs_steps=100, save_model=False, n_runs=1):
+    def sample_gibbs(self, n_gibbs_steps=100, save_model=False, n_runs=1000):
 
         # number of times we call the Gibbs sampler
-        n_call = int(n_runs/self.n_particles)
+        n_call = int(np.ceil(n_runs/self.n_particles))
 
         # list for all the "full" samples from all hidden layers
         all_full = []

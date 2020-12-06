@@ -98,7 +98,7 @@ def evaluate_classifier_trained_on_raw_digits_on_random_patterns(save_path, logr
 
     random_patterns = np.random.choice([0, 1], size=[60000,400])
         
-    print("\nEvaluate random pattern's similarity to digits by Logistic regression...")
+    #print("\nEvaluate random pattern's similarity to digits by Logistic regression...")
     pred_probs_random_logreg = logreg_digits.predict_proba(random_patterns)
     prob_winner_pred_random = pred_probs_random_logreg.max(axis=1)
     mean_qual = np.mean(prob_winner_pred_random)
@@ -123,7 +123,7 @@ def evaluate_classifier_trained_on_raw_digits_on_generated_samples(s_v, logreg, 
 
     logreg_digits = logreg
 
-    print("\nEvaluate samples similarity to digits by Logistic regression...")
+    #print("\nEvaluate samples similarity to digits by Logistic regression...")
     pred_probs_samples_logreg = logreg_digits.predict_proba(s_v)
     prob_winner_pred_samples = pred_probs_samples_logreg.max(axis=1)
     mean_qual = np.mean(prob_winner_pred_samples)
@@ -153,9 +153,9 @@ def evaluate_classifier_trained_on_raw_digits_on_testdigits(save_path, logreg_di
     acc = logreg_digits.score(bin_X_test, y_test)
     np.save(os.path.join(save_path, 'Accuracy_TestDigits.npy'), np.array([acc]))
 
-    print('accuracy on raw digits', acc)
+    #print('accuracy on raw digits', acc)
 
-    print("\nEvaluate test digits similarity to digits by Logistic regression...")
+    #print("\nEvaluate test digits similarity to digits by Logistic regression...")
     pred_probs_test_logreg = logreg_digits.predict_proba(bin_X_test)
     prob_winner_pred_test = pred_probs_test_logreg.max(axis=1)
     mean_qual = np.mean(prob_winner_pred_test)
