@@ -102,12 +102,12 @@ def evaluate_classifier_trained_on_raw_digits_on_random_patterns(save_path, logr
     pred_probs_random_logreg = logreg_digits.predict_proba(random_patterns)
     prob_winner_pred_random = pred_probs_random_logreg.max(axis=1)
     mean_qual = np.mean(prob_winner_pred_random)
-    print("Mean quality of test_images", mean_qual, "Std: ", np.std(prob_winner_pred_random))
+    #print("Mean quality of random patterns", mean_qual, "Std: ", np.std(prob_winner_pred_random))
 
     ind_winner_pred_random = np.argmax(pred_probs_random_logreg, axis=1)
     random_class, random_counts = np.unique(ind_winner_pred_random, return_counts=True)
     dic = dict(zip(random_class, random_counts))
-    print("sample counts per class",dic)
+    #print("sample counts per class",dic)
 
     mean_qual_d = np.zeros(len(random_class))
 
@@ -127,12 +127,12 @@ def evaluate_classifier_trained_on_raw_digits_on_generated_samples(s_v, logreg, 
     pred_probs_samples_logreg = logreg_digits.predict_proba(s_v)
     prob_winner_pred_samples = pred_probs_samples_logreg.max(axis=1)
     mean_qual = np.mean(prob_winner_pred_samples)
-    print("Mean quality of samples", mean_qual, "Std: ", np.std(prob_winner_pred_samples))
+    #print("Mean quality of samples", mean_qual, "Std: ", np.std(prob_winner_pred_samples))
 
     ind_winner_pred_samples = np.argmax(pred_probs_samples_logreg, axis=1)
     sample_class, sample_counts = np.unique(ind_winner_pred_samples, return_counts=True)
     dic = dict(zip(sample_class, sample_counts))
-    print("sample counts per class",dic)
+    #print("sample counts per class",dic)
 
     mean_qual_d = np.zeros(len(sample_class))
 
@@ -159,12 +159,12 @@ def evaluate_classifier_trained_on_raw_digits_on_testdigits(save_path, logreg_di
     pred_probs_test_logreg = logreg_digits.predict_proba(bin_X_test)
     prob_winner_pred_test = pred_probs_test_logreg.max(axis=1)
     mean_qual = np.mean(prob_winner_pred_test)
-    print("Mean quality of test_images", mean_qual, "Std: ", np.std(prob_winner_pred_test))
+    #print("Mean quality of test digits", mean_qual, "Std: ", np.std(prob_winner_pred_test))
 
     ind_winner_pred_test = np.argmax(pred_probs_test_logreg, axis=1)
     test_class, test_counts = np.unique(ind_winner_pred_test, return_counts=True)
     dic = dict(zip(test_class, test_counts))
-    print("sample counts per class",dic)
+    #print("sample counts per class",dic)
 
     mean_qual_d = np.zeros(len(test_class))
 
