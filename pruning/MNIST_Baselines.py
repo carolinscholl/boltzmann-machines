@@ -413,7 +413,7 @@ def create_baseline_DBM(dbm_folder=None):
     
 if __name__ == '__main__':
 
-    logreg = create_baseline_classifier(os.path.join('..', 'models', 'MNIST'))
+    # logreg = create_baseline_classifier(os.path.join('..', 'models', 'MNIST'))
     dbm = create_baseline_DBM(os.path.join('..', 'models', 'MNIST', 'initial'))
 
 
