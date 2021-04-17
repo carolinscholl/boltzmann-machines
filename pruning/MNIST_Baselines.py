@@ -281,7 +281,7 @@ def evaluate_initial_DBM(dbm, model_path=None, n_samples=60000, sample_every=200
     samples = dbm.sample_gibbs(n_gibbs_steps=sample_every, save_model=False, n_runs=n_samples)
 
     s_v = samples[:,:nv]
-    s_h1 = samples[:,nh1:nv+nh1]
+    s_h1 = samples[:,nv:nv+nh1]
     s_h2 = samples[:,nv+nh1:]
 
     if plot: 
