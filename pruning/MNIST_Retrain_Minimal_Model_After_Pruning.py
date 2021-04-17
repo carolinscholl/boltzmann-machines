@@ -51,6 +51,9 @@ def main(dbm_path: str, epochs_retrain: int, pruning_criterion: str):
 
     print("Retrain DBM and its RBMs saved under path ", dbm_path, f"for {epochs_retrain} epochs each.")
 
+    if not os.path.exists(dbm_path):
+        print("DBM does not exist. Specify a valid path.")
+
     # check that we have access to a GPU and that we only use one!
     if tf.test.gpu_device_name():
         print('Default GPU Device: {}'.format(tf.test.gpu_device_name()))
@@ -207,7 +210,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args.dbm_path, args.pruning_criterion, args.n_epochs_retrain)
-
-
-
-
