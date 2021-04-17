@@ -20,6 +20,8 @@ def main(path_dict: dict, output_dir: str, n_bootstraps: int = 10000, min_sample
     max_samples: maximum sample size
     """
     my_labels = path_dict.keys()
+    if not os.path.exsists(output_dir):
+        os.makedirs(output_dir)
 
     # load the digit counts out of the digit diversity results 
     digit_counts = {}
@@ -63,7 +65,7 @@ def main(path_dict: dict, output_dir: str, n_bootstraps: int = 10000, min_sample
             result_diff_sample_size[exp][str(frame)]['mean entropy'] = np.mean(entropies)
             result_diff_sample_size[exp][str(frame)]['std entropy'] = np.std(entropies)
 
-    f_name = os.path.join(output_path, 'Bootstraps{}_Resamples{}_to{}.p'.format(n_bootstraps, min_samples, max_samples))
+    f_name = os.path.join(output_dir, 'Bootstraps{}_Resamples{}_to{}.p'.format(n_bootstraps, min_samples, max_samples))
     with open(f_name, 'wb') as fp:
         pickle.dump(result_diff_sample_size, fp)
 
@@ -77,8 +79,8 @@ if __name__ == '__main__':
                     'Random': os.path.join('..', 'models', 'MNIST', 'minimal_models', 'random', 'minimal_model_qualdigits.npy'),
                     'Variance FI': os.path.join('..', 'models', 'MNIST', 'minimal_models', 'FI', 'minimal_model_qualdigits.npy'),
                     'Heuristic FI': os.path.join('..', 'models', 'MNIST', 'minimal_models', 'heuristicFI', 'minimal_model_qualdigits.npy'),
-                    'r'|w|'': os.path.join('..', 'models', 'MNIST', 'minimal_models', 'w_mag', 'minimal_model_qualdigits.npy')}
-    output_dir = os.path.join('..', 'models', 'MNIST')
+                    "|w|": os.path.join('..', 'models', 'MNIST', 'minimal_models', 'w_mag', 'minimal_model_qualdigits.npy')}
+    output_dir = os.path.join('..', 'models', 'MNIST', 'minimal_models')
     n_bootstraps = 10000
     min_samples = 100
     max_samples = 80000
