@@ -51,8 +51,7 @@ def main(dbm_path: str, epochs_retrain: int, pruning_criterion: str):
 
     print("Retrain DBM and its RBMs saved under path ", dbm_path, f"for {epochs_retrain} epochs each.")
 
-    if not os.path.exists(dbm_path):
-        print("DBM does not exist. Specify a valid path.")
+    assert os.path.exists(dbm_path), "Model does not exist yet. Specify a valid path"
 
     # check that we have access to a GPU and that we only use one!
     if tf.test.gpu_device_name():
@@ -109,12 +108,12 @@ def main(dbm_path: str, epochs_retrain: int, pruning_criterion: str):
     args['v_shape'] = (20,20)
     args['filter_shape']=[(20,20)] # deactivate receptive fields, they are now realised over the prune_mask
     args['n_vis']=nv
-    args['rbm1_dirpath'] = os.path.join('models', 'MNIST', 'minimal_models', f'{pruning_criterion}', 'MinimalRBM1')
-    args['rbm2_dirpath'] = os.path.join('models', 'MNIST', 'minimal_models', f'{pruning_criterion}', 'MinimalRBM2')
-    args['dbm_dirpath'] = os.path.join('models', 'MNIST', 'minimal_models', f'{pruning_criterion}', 'MinimalDBM')
+    args['rbm1_dirpath'] = os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}', 'MinimalRBM1')
+    args['rbm2_dirpath'] = os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}', 'MinimalRBM2')
+    args['dbm_dirpath'] = os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}', 'MinimalDBM')
 
-    if not os.path.exists(os.path.join('models', 'MNIST', 'minimal_models', f'{pruning_criterion}')):
-        os.makedirs(os.path.join('models', 'MNIST', 'minimal_models', f'{pruning_criterion}'))
+    if not os.path.exists(os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}')):
+        os.makedirs(os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}'))
 
     print('Retrain RBM1')
     rbm1 = make_rbm1(bin_X_train, Struct(**args))
@@ -178,7 +177,7 @@ def main(dbm_path: str, epochs_retrain: int, pruning_criterion: str):
     for i in range(len(qual_d.T)):
         print("digit", qual_d[0,i], "confidence", qual_d[1,i], "counts", qual_d[2,i])
 
-    np.save(os.path.join('models', 'MNIST', 'minimal_models', f'{pruning_criterion}', 'fi_minimal_model_qualdigits.npy'), qual_d)
+    np.save(os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}', 'minimal_model_qualdigits.npy'), qual_d)
 
 
 if __name__ == '__main__':
