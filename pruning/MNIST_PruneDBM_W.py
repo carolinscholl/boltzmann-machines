@@ -20,7 +20,7 @@ from shutil import copy
 import pathlib
 from sklearn.metrics import accuracy_score
 from sklearn.linear_model import LogisticRegression
-from sklearn.externals import joblib
+import joblib
 from pruning.MNIST_Baselines import *
 
 np.random.seed(42)
