@@ -35,7 +35,7 @@ class Struct:
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
-def main(perc=10, n_sessions=10):
+def main(perc_l1=10, perc_l2=10, n_sessions=10):
 
     # check that we have access to a GPU and that we only use one!
     if tf.test.gpu_device_name():
@@ -63,7 +63,7 @@ def main(perc=10, n_sessions=10):
     n_train = len(bin_X_train)
 
     # path to where models shall be saved
-    model_path = os.path.join('..', 'models', 'MNIST', f'antiFI_{perc}perc_{n_sessions}sessions')
+    model_path = os.path.join('..', 'models', 'MNIST', f'antiFI_{perc_l2}perc_{n_sessions}sessions')
     res_path = os.path.join(model_path,'res')
 
     assert not os.path.exists(model_path), "model path already exists - abort"
@@ -112,14 +112,28 @@ def main(perc=10, n_sessions=10):
     else:
         print("Pruning based on heuristic estimate")
 
-    THR = perc/100 #threshold for percentile
-    if ANTI_FI:
-        THR = round(1-THR,1)
-
     # PREPARE PRUNING
     n_iter = n_sessions
     n_check = 2
     pruning_session = 0
+
+    if CONSTANTLY:
+        THR_L1 = perc_l1/100
+        THR_L2 = perc_l2/100
+        left_l1 = int(len(W1[np.where(rf_mask1!=0)].flatten())) # number of weights left
+        left_l2 = int(len(hb1)*len(hb2))
+        list_n_to_remove_l1, list_n_to_remove_l2 = [], []
+        for i in range(n_iter):
+            list_n_to_remove_l1.append(int(THR_L1*left_l1))
+            left_l1 = int(left_l1 - list_n_to_remove_l1[i])
+            list_n_to_remove_l2.append(int(THR_L2*left_l2))
+            left_l2 = int(left_l2 - list_n_to_remove_l2[i])
+
+        np.save(os.path.join(res_path, 'n_to_remove_l1.npy'), np.array(list_n_to_remove_l1))
+        np.save(os.path.join(res_path, 'n_to_remove_l2.npy'), np.array(list_n_to_remove_l1))
+
+    THR_L1 = int(100-perc_l1)/100
+    THR_L2 = int(100-perc_l2)/100
 
     nv = args['n_vis']
     nh1 = args['n_hidden'][0]
@@ -151,14 +165,6 @@ def main(perc=10, n_sessions=10):
         fi_weights_after_joint_RBM2 = heu_est2.reshape((nh2,nh1)).T * temp_mask2
 
     fi_weights2=fi_weights_after_joint_RBM2
-
-    if CONSTANTLY:
-        left = int(len(W1[np.where(rf_mask1!=0)].flatten()) + len(hb1)*len(hb2)) # number of units left
-        list_n_to_remove = []
-        for i in range(n_iter):
-            list_n_to_remove.append(int(THR*left))
-            left = int(left - list_n_to_remove[i])
-        np.save(os.path.join(res_path, 'n_to_remove.npy'), np.array(list_n_to_remove))
 
     # create result arrays
     res_acc_logreg = np.zeros((n_iter, n_check)) # accuracy of log reg
@@ -196,10 +202,10 @@ def main(perc=10, n_sessions=10):
 
         temp_mask = rf_mask1 * prune_mask1
 
-        perc = np.percentile(fi_weights1[np.where(temp_mask!=0)],THR*100)
+        perc = np.percentile(fi_weights1[np.where(temp_mask!=0)],THR_L1*100)
 
         if not CONSTANTLY:
-            print("Prune",round(1-THR,1), " percentile of weights with highest FI")
+            print("Prune",round(1-THR_L1,1), " percentile of weights with highest FI")
 
             n_pruned = sum(fi_weights1[np.where(temp_mask!=0)].flatten()>perc)
             print(n_pruned, "weights of a total of",
@@ -211,8 +217,8 @@ def main(perc=10, n_sessions=10):
 
         if CONSTANTLY:
             n_pruned = sum(fi_weights1[np.where(temp_mask!=0)].flatten()>perc)
-            if (n_pruned/len(W1[np.where(temp_mask!=0)].flatten())) < round(1-THR,1):
-                print(THR, "th percentile = 0, randomly select some more in order to prune ", round(1-THR,1), "of weights.")
+            if (n_pruned/len(W1[np.where(temp_mask!=0)].flatten())) < round(1-THR_L1,1):
+                print(THR_L1, "th percentile = 0, randomly select some more in order to prune ", round(1-THR_L1,1), "of weights.")
                 # make a copy of the array
                 copy_fi = deepcopy(fi_weights1)
 
@@ -229,8 +235,7 @@ def main(perc=10, n_sessions=10):
                 indices_of_important_ones = set(indices_of_important_ones)
 
                 # that many we have to remove in order to delete 10%:
-                #n_10_percent = int(round(1-THR,1)*sum(temp_mask.flatten()!=0).flatten())
-                n_10_percent = list_n_to_remove[it]
+                n_10_percent = list_n_to_remove_l1[it]
 
                 # subtract the ones we prune because they have an FI > 0
                 n_to_remove = n_10_percent - len(indices_of_important_ones)
@@ -246,9 +251,9 @@ def main(perc=10, n_sessions=10):
                 keep[(list(randomly_selected_ones))] = False # set them to false
                 keep = keep.reshape(nv, nh1)
             else:
-                print("Prune",round(1-THR,1), " percentile of weights with highest FI")
+                print("Prune",round(1-THR_L1,1), " percentile of weights with highest FI")
 
-                perc = np.percentile(fi_weights1[np.where(temp_mask!=0)],THR*100)
+                perc = np.percentile(fi_weights1[np.where(temp_mask!=0)],THR_L1*100)
                 print("Weights with FI higher than", perc, "pruned")
 
                 print(n_pruned, "weights of a total of",
@@ -304,11 +309,11 @@ def main(perc=10, n_sessions=10):
 
         temp_mask = rf_mask2 * prune_mask2
 
-        perc = np.percentile(fi_weights2[np.where(temp_mask!=0)],THR*100)
+        perc = np.percentile(fi_weights2[np.where(temp_mask!=0)],THR_L2*100)
 
         if not CONSTANTLY:
 
-            print("Prune",round(1-THR,1), " percentile of weights with highest FI")
+            print("Prune",round(1-THR_L2,1), " percentile of weights with highest FI")
 
             n_pruned = sum(fi_weights2[np.where(temp_mask!=0)].flatten()>perc)
             print(n_pruned, "weights of a total of",
@@ -320,8 +325,8 @@ def main(perc=10, n_sessions=10):
 
         if CONSTANTLY:
             n_pruned = sum(fi_weights2[np.where(temp_mask!=0)].flatten()>perc)
-            if (n_pruned/len(W2[np.where(temp_mask!=0)].flatten())) < round(1-THR,1):
-                print(perc, "th percentile = 0, randomly select some more in order to prune ", round(1-THR,1), "of weights.")
+            if (n_pruned/len(W2[np.where(temp_mask!=0)].flatten())) < round(1-THR_L2,1):
+                print(perc, "th percentile = 0, randomly select some more in order to prune ", round(1-THR_L2,1), "of weights.")
                 # make a copy of the array
                 copy_fi = deepcopy(fi_weights2)
 
@@ -338,7 +343,7 @@ def main(perc=10, n_sessions=10):
                 indices_of_important_ones = set(indices_of_important_ones)
 
                 # that many we have to remove in order to delete 10%:
-                n_10_percent = int(round(1-THR,1)*sum(temp_mask.flatten()!=0).flatten())
+                n_10_percent = list_n_to_remove_l2[it]
 
                 # subtract the ones we prune because they have an FI > 0
                 n_to_remove = n_10_percent - len(indices_of_important_ones)
@@ -355,14 +360,13 @@ def main(perc=10, n_sessions=10):
                 keep = keep.reshape(nh1, nh2)
 
             else:
-                print("Prune",round(1-THR,1), " percentile of weights with highest FI")
+                print("Prune",round(1-THR_L2,1), " percentile of weights with highest FI")
 
                 print("Weights with FI higher than", perc, "pruned")
 
                 print(n_pruned, "weights of a total of",
                 len(W2[np.where(temp_mask!=0)].flatten()), "are pruned: ",
                 n_pruned/len(W2[np.where(temp_mask!=0)].flatten()), "of all weights.")
-
 
                 keep = np.reshape(fi_weights2, (nh1, nh2)) <= perc
 
@@ -475,25 +479,25 @@ def main(perc=10, n_sessions=10):
         args['dbm_dirpath']=os.path.join(model_path,'MNIST_PrunedDBM_both_Sess{}/'.format(pruning_session))
         dbm_pruned = init_dbm(bin_X_train, None, (rbm1_pruned, rbm2_pruned), Q_train_bin, G_train_bin, Struct(**args))
 
-        #run on gpu
-        config = tf.ConfigProto(
-            device_count = {'GPU': 1})
-        dbm_pruned._tf_session_config = config
+        # #run on gpu
+        # config = tf.ConfigProto(
+        #     device_count = {'GPU': 1})
+        # dbm_pruned._tf_session_config = config
 
-        # do as many samples as training instances
-        samples = dbm_pruned.sample_gibbs(n_gibbs_steps=SAMPLE_EVERY, save_model=False, n_runs=n_train)
+        # # do as many samples as training instances
+        # samples = dbm_pruned.sample_gibbs(n_gibbs_steps=SAMPLE_EVERY, save_model=False, n_runs=n_train)
 
-        s_v = samples[:,:nv]
-        s_h1 = samples[:,nv:nv+nh1]
-        s_h2 = samples[:,nv+nh1:]
+        # s_v = samples[:,:nv]
+        # s_h1 = samples[:,nv:nv+nh1]
+        # s_h2 = samples[:,nv+nh1:]
 
-        mean_activity_v = np.mean(s_v, axis=0)
-        mean_activity_h1 = np.mean(s_h1, axis=0)
-        mean_activity_h2 = np.mean(s_h2, axis=0)
+        # mean_activity_v = np.mean(s_v, axis=0)
+        # mean_activity_h1 = np.mean(s_h1, axis=0)
+        # mean_activity_h2 = np.mean(s_h2, axis=0)
 
-        np.save(os.path.join(res_path,'mean_activity_v_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_v)
-        np.save(os.path.join(res_path,'mean_activity_h1_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_h1)
-        np.save(os.path.join(res_path,'mean_activity_h2_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_h2)
+        # np.save(os.path.join(res_path,'mean_activity_v_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_v)
+        # np.save(os.path.join(res_path,'mean_activity_h1_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_h1)
+        # np.save(os.path.join(res_path,'mean_activity_h2_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_h2)
 
         ############ EVALUATION 1 ##############
 
@@ -597,6 +601,10 @@ def main(perc=10, n_sessions=10):
         # res_acc_logreg[it, checkpoint] = logreg_acc
 
         # save_results()
+        # run training on cpu
+        config = tf.ConfigProto(
+            device_count = {'GPU': 0})
+        dbm_pruned._tf_session_config = config
 
         # RETRAIN
         print("\nRetraining of DBM after pruning both layers...")
@@ -725,7 +733,7 @@ def main(perc=10, n_sessions=10):
 
 
 if __name__ == '__main__':
-
+    
     def check_positive(value):
         ivalue = int(value)
         if ivalue <= 0:
@@ -733,9 +741,10 @@ if __name__ == '__main__':
         return ivalue
     
     parser = argparse.ArgumentParser(description = 'DBM Pruning')
-    parser.add_argument('percentile', default=10, nargs='?', help='Percentage of weights removed in each iteration', type=int, choices=range(1, 100))
+    parser.add_argument('percentile_l1', default=10, nargs='?', help='Percentage of weights removed in layer 1 in each iteration', type=int, choices=range(1, 100))
+    parser.add_argument('percentile_l2', default=10, nargs='?', help='Percentage of weights removed in layer 1 in each iteration', type=int, choices=range(1, 100))
     parser.add_argument('n_pruning_session', default=10, nargs='?', help='Number of pruning sessions', type=check_positive)
 
     args = parser.parse_args()
 
-    main(args.percentile, args.n_pruning_session)
+    main(args.percentile_l1, args.percentile_l2, args.n_pruning_session)

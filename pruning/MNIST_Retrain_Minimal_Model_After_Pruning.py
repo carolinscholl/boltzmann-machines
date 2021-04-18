@@ -115,13 +115,14 @@ def main(dbm_path: str, epochs_retrain: int, pruning_criterion: str):
     if not os.path.exists(os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}')):
         os.makedirs(os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}'))
 
+    # run training on cpu
+    config = tf.ConfigProto(
+        device_count = {'GPU': 0})
+    dbm_pruned._tf_session_config = config
+
     print('Retrain RBM1')
     rbm1 = make_rbm1(bin_X_train, Struct(**args))
 
-    #run on gpu
-    config = tf.ConfigProto(
-            device_count = {'GPU': 1})
-    rbm1._tf_session_config = config
     Q_train = rbm1.transform(bin_X_train) 
     Q_test = rbm1.transform(bin_X_test) 
 

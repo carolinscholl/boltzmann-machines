@@ -34,7 +34,7 @@ class Struct:
         self.__dict__.update(entries)
 
 
-def main(perc=10, n_sessions=10):
+def main(perc_l1=10, perc_l2=10, n_sessions=10):
 
     # check that we have access to a GPU and that we only use one!
     if tf.test.gpu_device_name():
@@ -111,7 +111,8 @@ def main(perc=10, n_sessions=10):
     else:
         print("Pruning based on heuristic estimate")
 
-    THR = perc/100 #threshold for percentile
+    THR_L1 = perc_l1/100  #threshold for percentile
+    THR_L2 = perc_l2/100
 
     # PREPARE PRUNING
     n_iter = n_sessions
@@ -193,8 +194,8 @@ def main(perc=10, n_sessions=10):
 
         if DEL_ALL0: # delete all weights that have an FI of zero
 
-            if sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0) > THR*sum(fi_weights1[np.where(temp_mask!=0)].flatten()!=0):
-                print("More than",THR*100,"% parameters with FI = 0, all of them are pruned.")
+            if sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0) > THR_L1*sum(fi_weights1[np.where(temp_mask!=0)].flatten()!=0):
+                print("More than",THR_L1*100,"% parameters with FI = 0, all of them are pruned.")
 
                 print(sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0), "weights of a total of",
                 len(W1[np.where(temp_mask!=0)].flatten()), "are pruned: ",
@@ -204,9 +205,9 @@ def main(perc=10, n_sessions=10):
                 keep = np.reshape(fi_weights1, (nv, nh1)) > 0.
 
             else:
-                print("Prune",THR, "lowest percentile of weights with lowest FI")
+                print("Prune",THR_L1, "lowest percentile of weights with lowest FI")
 
-                perc = np.percentile(fi_weights1[np.where(temp_mask!=0)],THR*100)
+                perc = np.percentile(fi_weights1[np.where(temp_mask!=0)],THR_L1*100)
 
                 print(sum(fi_weights1[np.where(temp_mask!=0)].flatten()<=perc), "weights of a total of",
                 len(W1[np.where(temp_mask!=0)].flatten()), "are pruned: ",
@@ -217,8 +218,8 @@ def main(perc=10, n_sessions=10):
                 keep = np.reshape(fi_weights1, (nv, nh1)) > perc
 
         else: # delete only THR percent of weights (even if percentile is 0)
-            if sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0) > THR*sum(fi_weights1[np.where(temp_mask!=0)].flatten()!=0):
-                print("More than",THR*100,"% parameters with FI = 0, randomly select", THR*100, "% of these.")
+            if sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0) > THR_L1*sum(fi_weights1[np.where(temp_mask!=0)].flatten()!=0):
+                print("More than",THR_L1*100,"% parameters with FI = 0, randomly select", THR_L1*100, "% of these.")
 
                 # make a copy of the array
                 copy_fi = deepcopy(fi_weights1)
@@ -230,7 +231,7 @@ def main(perc=10, n_sessions=10):
                 indices_where_0 = np.squeeze(np.asarray(indices_where_0))
 
                 # that many we have to remove in order to delete 10%:
-                n_10_percent = int(THR*len(temp_mask[temp_mask!=0].flatten()))
+                n_10_percent = int(THR_L1*len(temp_mask[temp_mask!=0].flatten()))
 
                 # randomly select 10% of all indices where FI is 0
                 selected_10_percent = np.random.choice(indices_where_0, n_10_percent, replace=False)
@@ -240,9 +241,9 @@ def main(perc=10, n_sessions=10):
                 keep = keep.reshape(nv, nh1)
 
             else:
-                print("Prune",THR, "lowest percentile of weights with lowest FI")
+                print("Prune",THR_L1, "lowest percentile of weights with lowest FI")
 
-                perc = np.percentile(fi_weights1[np.where(temp_mask!=0)],THR*100)
+                perc = np.percentile(fi_weights1[np.where(temp_mask!=0)],THR_L1*100)
 
                 print(sum(fi_weights1[np.where(temp_mask!=0)].flatten()<=perc), "weights of a total of",
                 len(W1[np.where(temp_mask!=0)].flatten()), "are pruned: ",
@@ -306,8 +307,8 @@ def main(perc=10, n_sessions=10):
 
         if DEL_ALL0:
 
-            if sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0) > THR*sum(fi_weights2[np.where(temp_mask!=0)].flatten()!=0):
-                print("More than",THR*100,"% parameters with FI = 0, all of them are pruned.")
+            if sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0) > THR_L2*sum(fi_weights2[np.where(temp_mask!=0)].flatten()!=0):
+                print("More than",THR_L2*100,"% parameters with FI = 0, all of them are pruned.")
 
                 print(sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0), "weights of a total of",
                 len(W2[np.where(temp_mask!=0)].flatten()), "are pruned: ",
@@ -317,9 +318,9 @@ def main(perc=10, n_sessions=10):
                 keep = np.reshape(fi_weights2, (nh1, nh2)) > 0.
 
             else:
-                print("Prune",THR, "lowest percentile of weights with lowest FI")
+                print("Prune",THR_L2, "lowest percentile of weights with lowest FI")
 
-                perc = np.percentile(fi_weights2[np.where(temp_mask!=0)],THR*100)
+                perc = np.percentile(fi_weights2[np.where(temp_mask!=0)],THR_L2*100)
 
                 print(sum(fi_weights2[np.where(temp_mask!=0)].flatten()<=perc), "weights of a total of",
                 len(W2[np.where(temp_mask!=0)].flatten()), "are pruned: ",
@@ -330,8 +331,8 @@ def main(perc=10, n_sessions=10):
                 keep = np.reshape(fi_weights2, (nh1, nh2)) > perc
 
         else:
-            if sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0) > THR*sum(fi_weights2[np.where(temp_mask!=0)].flatten()!=0):
-                print("More than",THR*100,"% parameters with FI = 0, randomly select", THR*100, "% of these.")
+            if sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0) > THR_L2*sum(fi_weights2[np.where(temp_mask!=0)].flatten()!=0):
+                print("More than",THR_L2*100,"% parameters with FI = 0, randomly select", THR_L2*100, "% of these.")
                 # make a copy of the array
                 copy_fi = deepcopy(fi_weights2)
                 # indicate indices that are pruned
@@ -342,7 +343,7 @@ def main(perc=10, n_sessions=10):
                 indices_where_0 = np.squeeze(np.asarray(indices_where_0))
 
                 # that many we have to remove in order to delete 10%:
-                n_10_percent = int(THR*len(temp_mask[temp_mask!=0].flatten()))
+                n_10_percent = int(THR_L2*len(temp_mask[temp_mask!=0].flatten()))
 
                 print("prune ", n_10_percent, "of", len(W2[np.where(temp_mask!=0)].flatten()), "weights.")
 
@@ -354,9 +355,9 @@ def main(perc=10, n_sessions=10):
                 keep = keep.reshape(nh1, nh2)
 
             else:
-                print("Prune",THR, "lowest percentile of weights with lowest FI")
+                print("Prune",THR_L2, "lowest percentile of weights with lowest FI")
 
-                perc = np.percentile(fi_weights2[np.where(temp_mask!=0)],THR*100)
+                perc = np.percentile(fi_weights2[np.where(temp_mask!=0)],THR_L2*100)
 
                 print(sum(fi_weights2[np.where(temp_mask!=0)].flatten()<=perc), "weights of a total of",
                 len(W2[np.where(temp_mask!=0)].flatten()), "are pruned: ",
@@ -476,25 +477,25 @@ def main(perc=10, n_sessions=10):
         args['dbm_dirpath']=os.path.join(model_path,'MNIST_PrunedDBM_both_Sess{}/'.format(pruning_session))
         dbm_pruned = init_dbm(bin_X_train, None, (rbm1_pruned, rbm2_pruned), Q_train_bin, G_train_bin, Struct(**args))
 
-        #run on gpu
-        config = tf.ConfigProto(
-            device_count = {'GPU': 1})
-        dbm_pruned._tf_session_config = config
+        # #run on gpu
+        # config = tf.ConfigProto(
+        #     device_count = {'GPU': 1})
+        # dbm_pruned._tf_session_config = config
 
-        # do as many samples as training instances
-        samples = dbm_pruned.sample_gibbs(n_gibbs_steps=SAMPLE_EVERY, save_model=False, n_runs=n_train)
+        # # do as many samples as training instances
+        # samples = dbm_pruned.sample_gibbs(n_gibbs_steps=SAMPLE_EVERY, save_model=False, n_runs=n_train)
 
-        s_v = samples[:,:nv]
-        s_h1 = samples[:,nv:nv+nh1]
-        s_h2 = samples[:,nv+nh1:]
+        # s_v = samples[:,:nv]
+        # s_h1 = samples[:,nv:nv+nh1]
+        # s_h2 = samples[:,nv+nh1:]
 
-        mean_activity_v = np.mean(s_v, axis=0)
-        mean_activity_h1 = np.mean(s_h1, axis=0)
-        mean_activity_h2 = np.mean(s_h2, axis=0)
+        # mean_activity_v = np.mean(s_v, axis=0)
+        # mean_activity_h1 = np.mean(s_h1, axis=0)
+        # mean_activity_h2 = np.mean(s_h2, axis=0)
 
-        np.save(os.path.join(res_path,'mean_activity_v_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_v)
-        np.save(os.path.join(res_path,'mean_activity_h1_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_h1)
-        np.save(os.path.join(res_path,'mean_activity_h2_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_h2)
+        # np.save(os.path.join(res_path,'mean_activity_v_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_v)
+        # np.save(os.path.join(res_path,'mean_activity_h1_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_h1)
+        # np.save(os.path.join(res_path,'mean_activity_h2_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_h2)
 
         ############ EVALUATION 1 ##############
 
@@ -604,6 +605,11 @@ def main(perc=10, n_sessions=10):
         # res_acc_logreg[it, checkpoint] = logreg_acc
 
         # save_results()
+
+        # run training on cpu
+        config = tf.ConfigProto(
+            device_count = {'GPU': 0})
+        dbm_pruned._tf_session_config = config
 
         print("\nRetraining of DBM after pruning both layers...")
         dbm_pruned.fit(bin_X_train)
@@ -731,6 +737,7 @@ def main(perc=10, n_sessions=10):
         fi_weights2 = fi_weights_after_joint_RBM2
         fi_weights1 = fi_weights_after_joint_RBM1
 
+
 if __name__ == '__main__':
     
     def check_positive(value):
@@ -740,9 +747,10 @@ if __name__ == '__main__':
         return ivalue
     
     parser = argparse.ArgumentParser(description = 'DBM Pruning')
-    parser.add_argument('percentile', default=10, nargs='?', help='Percentage of weights removed in each iteration', type=int, choices=range(1, 100))
+    parser.add_argument('percentile_l1', default=10, nargs='?', help='Percentage of weights removed in layer 1 in each iteration', type=int, choices=range(1, 100))
+    parser.add_argument('percentile_l2', default=10, nargs='?', help='Percentage of weights removed in layer 1 in each iteration', type=int, choices=range(1, 100))
     parser.add_argument('n_pruning_session', default=10, nargs='?', help='Number of pruning sessions', type=check_positive)
 
     args = parser.parse_args()
 
-    main(args.percentile, args.n_pruning_session)
+    main(args.percentile_l1, args.percentile_l2, args.n_pruning_session)

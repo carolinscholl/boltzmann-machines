@@ -251,6 +251,11 @@ def compute_accuracy_on_hidden_layer_representations(dbm):
     bin_X_test = test[0]
     y_test = test[1]
 
+    # run on cpu
+    config = tf.ConfigProto(
+        device_count = {'GPU': 0})
+    dbm_pruned._tf_session_config = config
+
     # compute accuracy on transformed input digits (test set)
     final_train = dbm.transform(bin_X_train) 
     final_test = dbm.transform(bin_X_test) 
@@ -273,11 +278,21 @@ def evaluate_initial_DBM(dbm, model_path=None, n_samples=60000, sample_every=200
     nh1 = params['n_hiddens_'][0]
     nh2 = params['n_hiddens_'][1]
 
-    # sample 
+    # check that we have access to a GPU 
+    if tf.test.gpu_device_name():
+        print('Default GPU Device: {}'.format(tf.test.gpu_device_name()))
+        from tensorflow.python.client import device_lib
+        print(device_lib.list_local_devices())
+        print("Workspace initialized")
+    else:
+        print("Consider installing GPU version of TF and running sampling from DBMs on GPU.")
+
     #run on gpu
     config = tf.ConfigProto(
-            device_count = {'GPU': 1})
+        device_count = {'GPU': 1})
     dbm._tf_session_config = config
+
+    # sample 
     samples = dbm.sample_gibbs(n_gibbs_steps=sample_every, save_model=False, n_runs=n_samples)
 
     s_v = samples[:,:nv]
@@ -356,7 +371,7 @@ def train_initial_DBM_on_MNIST(args=None):
     if args is None: 
         args = get_initial_args()
 
-    # check that we have access to a GPU and that we only use one! 
+    # check that we have access to a GPU 
     if tf.test.gpu_device_name():
         print('Default GPU Device: {}'.format(tf.test.gpu_device_name()))
         from tensorflow.python.client import device_lib
@@ -364,6 +379,11 @@ def train_initial_DBM_on_MNIST(args=None):
         print("Workspace initialized")
     else:
         print("Consider installing GPU version of TF and running sampling from DBMs on GPU.")
+
+    # run training on cpu
+    config = tf.ConfigProto(
+        device_count = {'GPU': 0})
+    dbm_pruned._tf_session_config = config
 
     # train first RBM
     rbm1 = make_rbm1(bin_X_train, Struct(**args))
