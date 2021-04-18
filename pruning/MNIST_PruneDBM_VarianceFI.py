@@ -101,7 +101,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10):
     DEL_ALL0 = True
 
     # multiply FI by weight
-    TIMES_W = True
+    TIMES_W = False
 
     print("Pruning based on variance estimate of FIM diagonal.")
 
@@ -109,7 +109,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10):
     THR_L2 = perc_l2/100
 
     # PREPARE PRUNING
-    n_iter = 10
+    n_iter = n_sessions
     n_check = 2
     pruning_session = 0
 
