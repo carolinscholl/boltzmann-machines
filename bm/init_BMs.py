@@ -77,8 +77,6 @@ def make_rbm1(X, args):
                                 train_metrics_every_iter=500,
                             ),
                             verbose=True,
-                            #display_filters=30,
-                            #display_hidden_activations=24,
                             v_shape=args.v_shape,
                             freeze_weights = args.freeze_weights,
                             prune = args.prune,
@@ -128,8 +126,6 @@ def init_rbm1(args):
                             ),
                             double_rf = args.double_rf,
                             verbose=True,
-                            #display_filters=30,
-                            #display_hidden_activations=24,
                             v_shape=args.v_shape,
                             freeze_weights = args.freeze_weights,
                             prune = args.prune,
@@ -182,13 +178,10 @@ def make_rbm2(Q,args):
                                 train_metrics_every_iter=500,
                             ),
                             verbose=True,
-                            #display_filters=0,
-                            #display_hidden_activations=24,
                             random_seed=args.random_seed[1],
                             v_shape = (20,20), # what's the v_shape in this case?
                             freeze_weights = args.freeze_weights,
                             prune = args.prune,
-                            #filter_shape =  (10,10), #,args.filter_shape[1],
                             dtype='float32',
                             tf_saver_params=dict(max_to_keep=1),
                             model_path=args.rbm2_dirpath)
@@ -236,13 +229,10 @@ def init_rbm2(args):
                                 train_metrics_every_iter=500,
                             ),
                             verbose=True,
-                            #display_filters=0,
-                            #display_hidden_activations=24,
                             random_seed=args.random_seed[1],
                             v_shape = (20,20), # what's the v_shape in this case?
                             freeze_weights = args.freeze_weights,
                             prune = args.prune,
-                            #filter_shape =  (10,10), #,args.filter_shape[1],
                             dtype='float32',
                             tf_saver_params=dict(max_to_keep=1),
                             model_path=args.rbm2_dirpath)
@@ -315,56 +305,6 @@ def init_dbm(X_train, X_val, rbms, Q, G, args):
                   v_particle_init=X_train[:args.n_particles].copy(),
                   h_particles_init=(Q[:args.n_particles].copy(),
                                     G[:args.n_particles].copy()),
-                                    #D[:args.n_particles].copy()),
-                  n_gibbs_steps=args.n_gibbs_steps[2],
-                  max_mf_updates=args.max_mf_updates,
-                  mf_tol=args.mf_tol,
-                  learning_rate= args.lr[2],#np.geomspace(args.lr[2], 5e-6, 400),
-                  momentum= args.momentum, #np.geomspace(0.5, 0.9, 10),
-                  max_epoch=args.epochs[2],
-                  batch_size=args.batch_size[2],
-                  l2=args.l2[2],
-                  max_norm=args.max_norm,
-                  sample_v_states=True,
-                  sample_h_states=(True, True, True),
-                  sparsity_target=args.sparsity_target,
-                  sparsity_cost=args.sparsity_cost,
-                  sparsity_damping=args.sparsity_damping,
-                  train_metrics_every_iter=400,
-                  val_metrics_every_epoch=2,
-                  random_seed=args.random_seed[2],
-                  verbose=True,
-                  display_filters=0,
-                  display_particles=0,
-                  v_shape=(20, 20),
-                  dtype='float32',
-                  tf_saver_params=dict(max_to_keep=1),
-                  model_path=args.dbm_dirpath)
-        #run on cpu
-        config = tf.ConfigProto(
-          device_count = {'GPU': 0}
-          )
-        dbm._tf_session_config = config
-        dbm.init()
-    return dbm
-
-
-
-def init_dbm_without_particles(X_train, X_val, rbms, args):
-    if os.path.isdir(args.dbm_dirpath):
-        print("\nLoading DBM ...\n\n")
-        dbm = DBM.load_model(args.dbm_dirpath)
-        dbm.load_rbms(rbms)  # !!!
-    else:
-        print("\nInitializing DBM ...\n\n")
-
-        dbm = DBM(rbms=rbms,
-                  n_layers = args.n_layers,
-                  n_particles=args.n_particles,
-                  #v_particle_init=X_train[:args.n_particles].copy(),
-                  #h_particles_init=(Q[:args.n_particles].copy(),
-                  #                  G[:args.n_particles].copy()),
-                  #                  D[:args.n_particles].copy()),
                   n_gibbs_steps=args.n_gibbs_steps[2],
                   max_mf_updates=args.max_mf_updates,
                   mf_tol=args.mf_tol,
@@ -399,11 +339,6 @@ def init_dbm_without_particles(X_train, X_val, rbms, args):
 
 
 def init_rbm(args): # initializes standard RBM
-#     if os.path.isdir(args.model_dirpath):
-#         print ("\nLoading model ...\n\n")
-#         rbm = BernoulliRBM.load_model(args.model_dirpath)
-#     else:
-#     print ("\nTraining model ...\n\n")
     rbm = BernoulliRBM(n_visible=args.n_visible,
                        n_hidden=args.n_hidden,
                        W_init=args.w_init,
@@ -414,7 +349,6 @@ def init_rbm(args): # initializes standard RBM
                        filter_shape = args.filter_shape,
                        n_gibbs_steps=args.n_gibbs_steps,
                        learning_rate=args.lr,
-#                        momentum=np.geomspace(0.5, 0.9, 8),
                        momentum=args.momentum,
                        max_epoch=args.epochs,
                        batch_size=args.batch_size,
@@ -435,7 +369,7 @@ def init_rbm(args): # initializes standard RBM
                            n_batches_for_feg=10,
                        ),
                        verbose=True,
-                       random_seed=args.random_seed,
+                       random_seed=args.random_seed[0],
                        dtype=args.dtype,
                        tf_saver_params=dict(max_to_keep=1),
                        model_path=args.model_dirpath)

@@ -193,7 +193,7 @@ def train_classifier_on_raw_digits(save_path=None):
 
     return logreg_digits
 
-def get_initial_args(model_path=None):
+def get_initial_args(model_path=None, random_seed=None):
     if model_path is None: 
         model_path= os.path.join('..', 'models', 'MNIST', 'initial')
 
@@ -214,7 +214,10 @@ def get_initial_args(model_path=None):
     args['sample_v_states'] = True 
     args['dropout'] = None
     args['prune']=False
-    args['random_seed'] = (1337, 1111, 2222, 3333)
+    if random_seed is not None:
+        args['random_seed'] = (random_seed, random_seed, random_seed, random_seed)
+    else:
+        args['random_seed'] = (1337, 1111, 2222, 3333)
     args['dtype'] = 'float32'
     args['v_shape'] = (20,20)
     args['freeze_weights'] = None
@@ -339,15 +342,15 @@ def evaluate_initial_DBM(dbm, model_path=None, n_samples=60000, sample_every=200
     np.save(os.path.join(model_path, 'RBM1_initial_FI_weights.npy'), fi_weights1)
     np.save(os.path.join(model_path, 'RBM2_initial_FI_weights.npy'), fi_weights2)
 
-def get_initial_DBM(model_path=None, args=None):
+def get_initial_DBM(model_path=None, args=None, random_seed=None):
     if model_path is None: 
         model_path=os.path.join('..', 'models', 'MNIST', 'initial')
 
     if args is None: 
-        args = get_initial_args(model_path)
+        args = get_initial_args(model_path, random_seed)
     
     if not os.path.exists(args['dbm_dirpath']):
-        dbm = train_initial_DBM_on_MNIST(args)
+        dbm = train_initial_DBM_on_MNIST(args, random_seed)
 
     else: 
         rbm1 = load_rbm1(Struct(**args))
@@ -356,7 +359,7 @@ def get_initial_DBM(model_path=None, args=None):
 
     return dbm
 
-def train_initial_DBM_on_MNIST(args=None):
+def train_initial_DBM_on_MNIST(args=None, random_seed=None):
     # get training data
     train, test = preprocess_MNIST()
 
@@ -366,7 +369,7 @@ def train_initial_DBM_on_MNIST(args=None):
     y_test = test[1]
 
     if args is None: 
-        args = get_initial_args()
+        args = get_initial_args(None, random_seed)
 
     # check that we have access to a GPU 
     if tf.test.gpu_device_name():
@@ -376,11 +379,6 @@ def train_initial_DBM_on_MNIST(args=None):
         print("Workspace initialized")
     else:
         print("Consider installing GPU version of TF and running sampling from DBMs on GPU.")
-
-    # run training on cpu
-    config = tf.ConfigProto(
-        device_count = {'GPU': 0})
-    dbm_pruned._tf_session_config = config
 
     # train first RBM
     rbm1 = make_rbm1(bin_X_train, Struct(**args))
@@ -416,7 +414,7 @@ def create_baseline_classifier(top_folder=None):
     evaluate_classifier_trained_on_raw_digits_on_testdigits(top_folder, logreg)
     return logreg
 
-def create_baseline_DBM(dbm_folder=None):
+def create_baseline_DBM(dbm_folder=None, random_seed=None):
     if dbm_folder is None: 
         dbm_folder = os.path.join('..', 'models', 'MNIST', 'initial')
 
@@ -424,7 +422,7 @@ def create_baseline_DBM(dbm_folder=None):
         os.makedirs(dbm_folder)
 
     # train/get baseline DBM
-    dbm = get_initial_DBM(dbm_folder)
+    dbm = get_initial_DBM(dbm_folder, None, random_seed)
     evaluate_initial_DBM(dbm, dbm_folder)
     return dbm
     
