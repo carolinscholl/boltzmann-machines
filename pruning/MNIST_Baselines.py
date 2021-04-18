@@ -22,11 +22,8 @@ import argparse
 import pathlib
 from sklearn.metrics import accuracy_score
 from sklearn.linear_model import LogisticRegression
-from sklearn.externals import joblib
+import joblib
 import matplotlib.pyplot as plt
-
-np.random.seed(42)
-random.seed(42)
 
 # if machine has multiple GPUs only use first one
 #os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
@@ -433,8 +430,15 @@ def create_baseline_DBM(dbm_folder=None):
     
 if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser(description = 'DBM Pruning')
+    parser.add_argument('seed', default=42, nargs='?', help='Random seed', type=int)
+    args = parser.parse_args()
+
+    np.random.seed(args.seed)
+    random.seed(args.seed)
+
     # logreg = create_baseline_classifier(os.path.join('..', 'models', 'MNIST'))
-    dbm = create_baseline_DBM(os.path.join('..', 'models', 'MNIST', 'initial'))
+    dbm = create_baseline_DBM(os.path.join('..', 'models', 'MNIST', 'initial_'+str(args.seed)))
 
 
 

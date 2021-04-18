@@ -49,6 +49,8 @@ This repository implements pruning mechanisms for generic RBM and DBM models as 
 
 ## How to install
     git clone --recursive https://github.com/carolinscholl/PruningBMs.git 
+    git sumbodule init
+    git submodule update
     cd PruningBMs
     pip install -r requirements.txt
 
