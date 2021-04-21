@@ -32,7 +32,8 @@ class Struct:
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
-def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_path=None, constant=True, use_var=True):
+def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_path=None, constant=True, 
+         use_var=True, evaluate_immediately_after_pruning=False):
 
     # check that we have access to a GPU and that we only use one!
     if tf.test.gpu_device_name():
@@ -467,28 +468,6 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
         args['dbm_dirpath']=os.path.join(model_path,'MNIST_PrunedDBM_both_Sess{}/'.format(pruning_session))
         dbm_pruned = init_dbm(bin_X_train, None, (rbm1_pruned, rbm2_pruned), Q_train_bin, G_train_bin, Struct(**args))
 
-        # #run on gpu
-        # config = tf.ConfigProto(
-        #     device_count = {'GPU': 1})
-        # dbm_pruned._tf_session_config = config
-
-        # # do as many samples as training instances
-        # samples = dbm_pruned.sample_gibbs(n_gibbs_steps=SAMPLE_EVERY, save_model=False, n_runs=n_train)
-
-        # s_v = samples[:,:nv]
-        # s_h1 = samples[:,nv:nv+nh1]
-        # s_h2 = samples[:,nv+nh1:]
-
-        # mean_activity_v = np.mean(s_v, axis=0)
-        # mean_activity_h1 = np.mean(s_h1, axis=0)
-        # mean_activity_h2 = np.mean(s_h2, axis=0)
-
-        # np.save(os.path.join(res_path,'mean_activity_v_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_v)
-        # np.save(os.path.join(res_path,'mean_activity_h1_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_h1)
-        # np.save(os.path.join(res_path,'mean_activity_h2_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_h2)
-
-        ############ EVALUATION 1 ##############
-
         checkpoint=0
         res_n_hid_L2[it, checkpoint] = nh2 # save number of left hiddens in layer 2
         res_n_hid_L1[it, checkpoint] = nh1
@@ -500,95 +479,119 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
         rf_mask2 = masks['rf_mask_1']
         prune_mask2 = masks['prune_mask_1']
 
-        # print("\nPruning session", pruning_session, "checkpoint", checkpoint+1,"\n")
-        # print("After pruning both layers, before joint retraining")
+        if evaluate_immediately_after_pruning:
+            ########### EVALUATION 1 ##############
 
-        # mask2 = rf_mask2 * prune_mask2
-        # active_weights2 = len(mask2.flatten()) - len(mask2[mask2==0].flatten())
-        # mask1 = rf_mask1 * prune_mask1
-        # active_weights1 = len(mask1.flatten()) - len(mask1[mask1==0].flatten())
+            #run on gpu
+            config = tf.ConfigProto(
+                device_count = {'GPU': 1})
+            dbm_pruned._tf_session_config = config
 
-        # print("")
-        # print(active_weights1, "active weights in layer 1")
-        # print(active_weights2, "active weights in layer 2\n")
+            # do as many samples as training instances
+            samples = dbm_pruned.sample_gibbs(n_gibbs_steps=SAMPLE_EVERY, save_model=False, n_runs=n_train)
 
-        # res_act_weights_L2[it, checkpoint] = active_weights2
-        # res_act_weights_L1[it, checkpoint] = active_weights1
+            s_v = samples[:,:nv]
+            s_h1 = samples[:,nv:nv+nh1]
+            s_h2 = samples[:,nv+nh1:]
 
-        # # get parameters
-        # weights = dbm_pruned.get_tf_params(scope='weights')
-        # W1 = weights['W']
-        # hb1 = weights['hb']
-        # W2 = weights['W_1']
-        # hb2 = weights['hb_1']
-        # vb = weights['vb']
+            mean_activity_v = np.mean(s_v, axis=0)
+            mean_activity_h1 = np.mean(s_h1, axis=0)
+            mean_activity_h2 = np.mean(s_h2, axis=0)
 
-        # # compute FI for first layer
-        # samples = np.hstack((s_v, s_h1))
+            np.save(os.path.join(res_path,'mean_activity_v_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_v)
+            np.save(os.path.join(res_path,'mean_activity_h1_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_h1)
+            np.save(os.path.join(res_path,'mean_activity_h2_both_Sess{}_before_retrain'.format(pruning_session)), mean_activity_h2)
 
-        # temp_mask1 = rf_mask1 * prune_mask1
+            print("\nPruning session", pruning_session, "checkpoint", checkpoint+1,"\n")
+            print("After pruning both layers, before joint retraining")
 
-        # print("Computing FI for weights of layer 1")
-        # var_est1, heu_est1 = FI_weights_var_heur_estimates(samples, nv, nh1, W1) # call without mask
+            mask2 = rf_mask2 * prune_mask2
+            active_weights2 = len(mask2.flatten()) - len(mask2[mask2==0].flatten())
+            mask1 = rf_mask1 * prune_mask1
+            active_weights1 = len(mask1.flatten()) - len(mask1[mask1==0].flatten())
 
-        # if USE_VAR:
-        #     fi_weights_after_joint_RBM1 = var_est1.reshape((nh1,nv)).T * temp_mask1   # VARIANCE ESTIMATE!
-        # else:
-        #     fi_weights_after_joint_RBM1 = heu_est1.reshape((nh1,nv)).T * temp_mask1   # HEURISTIC ESTIMATE!
+            print("")
+            print(active_weights1, "active weights in layer 1")
+            print(active_weights2, "active weights in layer 2\n")
 
-        # np.save(os.path.join(res_path, 'FI_weights_RBM1_before_retrain_sess{}'.format(pruning_session)), fi_weights_after_joint_RBM1)
+            res_act_weights_L2[it, checkpoint] = active_weights2
+            res_act_weights_L1[it, checkpoint] = active_weights1
 
-        # samples = np.hstack((s_h1, s_h2))
+            # get parameters
+            weights = dbm_pruned.get_tf_params(scope='weights')
+            W1 = weights['W']
+            hb1 = weights['hb']
+            W2 = weights['W_1']
+            hb2 = weights['hb_1']
+            vb = weights['vb']
 
-        # # compute FI for second layer
-        # temp_mask2 = rf_mask2 * prune_mask2
+            # compute FI for first layer
+            samples = np.hstack((s_v, s_h1))
 
-        # print("Computing FI for weights of layer 2")
-        # var_est2, heu_est2 = FI_weights_var_heur_estimates(samples, nh1, nh2, W2) # call without mask
+            temp_mask1 = rf_mask1 * prune_mask1
 
-        # if USE_VAR:
-        #     fi_weights_after_joint_RBM2 = var_est2.reshape((nh2,nh1)).T * temp_mask2   # VARIANCE ESTIMATE
-        # else:
-        #     fi_weights_after_joint_RBM2 = heu_est2.reshape((nh2,nh1)).T * temp_mask2   # HEURISTIC ESTIMATE
+            print("Computing FI for weights of layer 1")
+            var_est1, heu_est1 = FI_weights_var_heur_estimates(samples, nv, nh1, W1) # call without mask
 
-        # np.save(os.path.join(res_path, 'FI_weights_RBM2_before_retrain_sess{}'.format(pruning_session)), fi_weights_after_joint_RBM2)
+            if USE_VAR:
+                fi_weights_after_joint_RBM1 = var_est1.reshape((nh1,nv)).T * temp_mask1   # VARIANCE ESTIMATE!
+            else:
+                fi_weights_after_joint_RBM1 = heu_est1.reshape((nh1,nv)).T * temp_mask1   # HEURISTIC ESTIMATE!
 
-        # print("\nEvaluate samples similarity to digits...")
-        # pred_probs_samples = logreg_digits.predict_proba(s_v)
-        # prob_winner_pred_samples = pred_probs_samples.max(axis=1)
-        # mean_qual = np.mean(prob_winner_pred_samples)
-        # print("Mean quality of samples", mean_qual, "Std: ", np.std(prob_winner_pred_samples))
+            np.save(os.path.join(res_path, 'FI_weights_RBM1_before_retrain_sess{}'.format(pruning_session)), fi_weights_after_joint_RBM1)
 
-        # ind_winner_pred_samples = np.argmax(pred_probs_samples, axis=1)
-        # sample_class, sample_counts = np.unique(ind_winner_pred_samples, return_counts=True)
-        # dic = dict(zip(sample_class, sample_counts))
-        # print("sample counts per class",dic)
+            samples = np.hstack((s_h1, s_h2))
 
-        # probs=pred_probs_samples.max(axis=1)
-        # mean_qual_d = np.zeros(len(sample_class))
+            # compute FI for second layer
+            temp_mask2 = rf_mask2 * prune_mask2
 
-        # for i in range(0,len(sample_class)):
-        #     ind=np.where(ind_winner_pred_samples==sample_class[i])
-        #     mean_qual_d[i] = np.mean(probs[ind])
+            print("Computing FI for weights of layer 2")
+            var_est2, heu_est2 = FI_weights_var_heur_estimates(samples, nh1, nh2, W2) # call without mask
 
-        # qual_d = [sample_class, mean_qual_d, sample_counts]
+            if USE_VAR:
+                fi_weights_after_joint_RBM2 = var_est2.reshape((nh2,nh1)).T * temp_mask2   # VARIANCE ESTIMATE
+            else:
+                fi_weights_after_joint_RBM2 = heu_est2.reshape((nh2,nh1)).T * temp_mask2   # HEURISTIC ESTIMATE
 
-        # print("Weighted (per class frequency) mean quality of samples", np.mean(mean_qual_d))
+            np.save(os.path.join(res_path, 'FI_weights_RBM2_before_retrain_sess{}'.format(pruning_session)), fi_weights_after_joint_RBM2)
 
-        # np.save(os.path.join(res_path, 'ProbsWinDig_sess{}_checkpoint{}.npy'.format(pruning_session, checkpoint+1)), qual_d)
+            print("\nEvaluate samples similarity to digits...")
+            pred_probs_samples = logreg_digits.predict_proba(s_v)
+            prob_winner_pred_samples = pred_probs_samples.max(axis=1)
+            mean_qual = np.mean(prob_winner_pred_samples)
+            print("Mean quality of samples", mean_qual, "Std: ", np.std(prob_winner_pred_samples))
 
-        # print("\nEvaluate hidden unit representations...")
-        # final_train = dbm_pruned.transform(bin_X_train)
-        # final_test = dbm_pruned.transform(bin_X_test)
+            ind_winner_pred_samples = np.argmax(pred_probs_samples, axis=1)
+            sample_class, sample_counts = np.unique(ind_winner_pred_samples, return_counts=True)
+            dic = dict(zip(sample_class, sample_counts))
+            print("sample counts per class",dic)
 
-        # print("\nTrain LogReg classifier on final hidden layer...")
-        # logreg_hid = LogisticRegression(multi_class='multinomial', solver='sag', max_iter=800, n_jobs=2, random_state=4444)
-        # logreg_hid.fit(final_train, y_train)
-        # logreg_acc = logreg_hid.score(final_test, y_test)
-        # print("classification accuracy of LogReg classifier", logreg_acc)
-        # res_acc_logreg[it, checkpoint] = logreg_acc
+            probs=pred_probs_samples.max(axis=1)
+            mean_qual_d = np.zeros(len(sample_class))
 
-        # save_results()
+            for i in range(0,len(sample_class)):
+                ind=np.where(ind_winner_pred_samples==sample_class[i])
+                mean_qual_d[i] = np.mean(probs[ind])
+
+            qual_d = [sample_class, mean_qual_d, sample_counts]
+
+            print("Weighted (per class frequency) mean quality of samples", np.mean(mean_qual_d))
+
+            np.save(os.path.join(res_path, 'ProbsWinDig_sess{}_checkpoint{}.npy'.format(pruning_session, checkpoint+1)), qual_d)
+
+            print("\nEvaluate hidden unit representations...")
+            final_train = dbm_pruned.transform(bin_X_train)
+            final_test = dbm_pruned.transform(bin_X_test)
+
+            print("\nTrain LogReg classifier on final hidden layer...")
+            logreg_hid = LogisticRegression(multi_class='multinomial', solver='sag', max_iter=800, n_jobs=2, random_state=4444)
+            logreg_hid.fit(final_train, y_train)
+            logreg_acc = logreg_hid.score(final_test, y_test)
+            print("classification accuracy of LogReg classifier", logreg_acc)
+            res_acc_logreg[it, checkpoint] = logreg_acc
+
+            save_results()
+        
         # run training on cpu
         config = tf.ConfigProto(
             device_count = {'GPU': 0})
