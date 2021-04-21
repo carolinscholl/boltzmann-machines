@@ -658,6 +658,11 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
         fi_weights2 = fi_weights_after_joint_RBM2
         fi_weights1 = fi_weights_after_joint_RBM1
 
+    # save final visible layer
+    out_synapses = np.sum(temp_mask1, axis=1)  # sum of outgoing synapses from the visible layer
+    ind = np.argwhere(out_synapses == 0)  
+    np.save(os.path.join(res_path, 'final_indices_of_lost_visibles.npy'), ind)
+
 
 if __name__ == '__main__':
     

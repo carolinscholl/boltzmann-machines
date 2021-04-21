@@ -363,8 +363,8 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
         keep[prune_mask2==0]=0
 
         # check how many hidden units in last layer are still connected
-        no_left_hidden = 0 # number of hidden units left
-        indices_of_left_hiddens = [] # indices of the ones we keep
+        no_left_hidden = 0  # number of hidden units left
+        indices_of_left_hiddens = []  # indices of the ones we keep
         for i in range(nh2):
             if sum(keep[:,i]!=0):
                 no_left_hidden+=1
@@ -397,11 +397,6 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
         vb = deepcopy(vb)
         hb = deepcopy(hb1)
         hb = hb[indices_of_left_intermediate_units]
-
-        # adjust hidden biases -> gave bad performance
-        #mean_act_per_neuron = np.mean(s_h1, axis = 0)
-        #hb = (-1/(1+np.exp(mean_act_per_neuron)))
-        #hb=hb[indices_of_left_intermediate_units]
 
         # set new weights
         new_weights1[keep1==0]=0
@@ -721,6 +716,11 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
         # set these for next loop
         fi_weights2 = fi_weights_after_joint_RBM2
         fi_weights1 = fi_weights_after_joint_RBM1
+
+    # save final visible layer
+    out_synapses = np.sum(temp_mask1, axis=1)  # sum of outgoing synapses from the visible layer
+    ind = np.argwhere(out_synapses == 0)  
+    np.save(os.path.join(res_path, 'final_indices_of_lost_visibles.npy'), ind)
 
 
 if __name__ == '__main__':
