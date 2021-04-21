@@ -23,7 +23,6 @@ from sklearn.linear_model import LogisticRegression
 import joblib
 from pruning.MNIST_Baselines import *
 
-np.random.seed(42)
 
 # if machine has multiple GPUs only use first one
 #os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
@@ -34,24 +33,12 @@ class Struct:
         self.__dict__.update(entries)
 
 
-def load_final_pruned_DBM(dbm_path):
-    args = get_initial_args()
-    args['dbm_dirpath']= dbm_path
-    args['rbm1_dirpath'] = None
-    args['rbm2_dirpath'] = None
-    if os.path.exists(dbm_path):
-        dbm = load_dbm_withoutRBMs(Struct(**args))
-    else: 
-        print("DBM model does not exist")
-        dbm = None
-    return dbm
-
-
-def main(dbm_path: str, epochs_retrain: int, pruning_criterion: str):
+def main(dbm_path: str, epochs_retrain: int, pruning_criterion: str, output_path: str, random_seed: int):
 
     print("Retrain DBM and its RBMs saved under path ", dbm_path, f"for {epochs_retrain} epochs each.")
 
-    assert os.path.exists(dbm_path), "Model does not exist yet. Specify a valid path"
+    assert os.path.exists(dbm_path), "Final pruned model does not exist yet. Specify a valid path"
+    assert not os.path.exists(os.path.join(output_path, 'MinimalDBM/')), print('Minimal model already exists - abort')
 
     # check that we have access to a GPU and that we only use one!
     if tf.test.gpu_device_name():
@@ -78,7 +65,17 @@ def main(dbm_path: str, epochs_retrain: int, pruning_criterion: str):
 
     n_train = len(bin_X_train)
 
-    dbm = load_dbm_withoutRBMs(Struct(**args))
+    if not dbm_path.endswith('/'):  # the path has to end with /
+        dbm_path = dbm_path+'/'
+
+    # load final pruned DBM
+    if os.path.exists(dbm_path):
+        args = get_initial_args(dbm_path, random_seed)
+        dbm = load_dbm_withoutRBMs(Struct(**args))
+    else: 
+        print("DBM model does not exist")
+        raise RuntimeError
+
     params = dbm.get_tf_params(scope='weights')
     W1 = params['W']
     W2 = params['W_1']
@@ -104,16 +101,21 @@ def main(dbm_path: str, epochs_retrain: int, pruning_criterion: str):
     args['prune']=True
     args['n_hidden'] = (nh1, nh2)
     args['freeze_weights']=mask1
-    args['random_seed'] = (1337, 1111, 2222, 3333)
+    args['random_seed'] = (random_seed, random_seed, random_seed, random_seed)  # the weights are initialized randomly for retraining of the models
     args['v_shape'] = (20,20)
     args['filter_shape']=[(20,20)] # deactivate receptive fields, they are now realised over the prune_mask
     args['n_vis']=nv
-    args['rbm1_dirpath'] = os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}', 'MinimalRBM1')
-    args['rbm2_dirpath'] = os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}', 'MinimalRBM2')
-    args['dbm_dirpath'] = os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}', 'MinimalDBM')
+    args['rbm1_dirpath'] = os.path.join(output_path, 'MinimalRBM1/')
+    args['rbm2_dirpath'] = os.path.join(output_path, 'MinimalRBM2/')
+    args['dbm_dirpath'] = os.path.join(output_path, 'MinimalDBM/')
 
-    if not os.path.exists(os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}')):
-        os.makedirs(os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}'))
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    # save final visible layer
+    out_synapses = np.sum(mask1, axis=1)  # sum of outgoing synapses from the visible layer
+    ind = np.argwhere(out_synapses == 0)  
+    np.save(os.path.join(output_path, 'final_indices_of_lost_visibles.npy'), ind)
 
     # run training on cpu
     config = tf.ConfigProto(
@@ -178,7 +180,13 @@ def main(dbm_path: str, epochs_retrain: int, pruning_criterion: str):
     for i in range(len(qual_d.T)):
         print("digit", qual_d[0,i], "confidence", qual_d[1,i], "counts", qual_d[2,i])
 
-    np.save(os.path.join('..', 'models', 'MNIST', 'minimal_models', f'{pruning_criterion}', 'minimal_model_qualdigits.npy'), qual_d)
+    np.save(os.path.join(output_path, 'minimal_model_qualdigits.npy'), qual_d)
+
+    # save some exemplary generated samples
+    n_samples = 25
+    random_indices = random.sample(range(s_v.shape[0]), n_samples) 
+    random_sample_v = s_v[random_indices, :].astype('bool') 
+    np.save(os.path.join(output_path, f'final_visible_samples_n{n_samples}.npy'), random_sample_v)
 
 
 if __name__ == '__main__':
@@ -206,7 +214,12 @@ if __name__ == '__main__':
     parser.add_argument('dbm_path', help='Path to DBM to be retrained', type=str)
     parser.add_argument('pruning_criterion', help='Pruning criterion', type=check_validity_pruning_criterion)
     parser.add_argument('n_epochs_retrain', default=20, nargs='?', help='Number of epochs for retraining', type=check_positive)
+    parser.add_argument('seed', default=42, nargs='?', help='Random seed', type=int)
 
     args = parser.parse_args()
+    np.random.seed(args.seed)
+    random.seed(args.seed)
 
-    main(args.dbm_path, args.pruning_criterion, args.n_epochs_retrain)
+    output_path = os.path.join('..', 'models', 'MNIST', 'minimal_models', f'seed{args.seed}', args.pruning_criterion)
+
+    main(args.dbm_path, args.pruning_criterion, args.n_epochs_retrain, output_path, args.seed)
