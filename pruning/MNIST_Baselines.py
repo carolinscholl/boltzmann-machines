@@ -85,7 +85,9 @@ def get_classifier_trained_on_raw_digits(path=None):
         path = os.path.join('..', 'models', 'MNIST', 'logreg_MNIST.pkl')
     
     if not os.path.exists(path):
-        logreg_digits = train_classifier_on_raw_digits(path)
+        logreg_digits = None  # avoid retraining of classifier trained on raw digits
+        print('logistic regression classifier trained on raw digits not found')
+        # logreg_digits = train_classifier_on_raw_digits(path)
     else:
         logreg_digits = joblib.load(path) 
 
@@ -222,8 +224,8 @@ def get_initial_args(model_path=None, random_seed=None):
     args['v_shape'] = (20,20)
     args['freeze_weights'] = None
     args['filter_shape'] = [(5,5)]  # for the receptive fields
-    args['rbm1_dirpath'] = os.path.join(model_path,'MNIST_DBM_Layer1/')
-    args['rbm2_dirpath'] = os.path.join(model_path,'MNIST_DBM_Layer2/')
+    args['rbm1_dirpath'] = os.path.join(model_path,'MNIST_DBM_Layer1/')  # / at the end necessary!
+    args['rbm2_dirpath'] = os.path.join(model_path,'MNIST_DBM_Layer2/')  # / at the end necessary!
     args['double_rf'] = False
 
     # RBM 2 related
@@ -238,7 +240,7 @@ def get_initial_args(model_path=None, random_seed=None):
     args['sparsity_cost'] = (0,0,0) # controls the amount of sparsity penalty 
     args['sparsity_damping']=0.8 # decay rate for hidden activations probs
     args['n_layers']=2 # I added this as a parameter for the model, otherwise it couldn't load a DBM from the disk!
-    args['dbm_dirpath']=os.path.join(model_path,'MNIST_InitialDBM/')
+    args['dbm_dirpath']=os.path.join(model_path,'MNIST_InitialDBM/')  # / at the end necessary!
 
     return args
 

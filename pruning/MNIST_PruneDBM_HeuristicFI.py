@@ -23,8 +23,6 @@ from sklearn.linear_model import LogisticRegression
 import joblib
 from pruning.MNIST_Baselines import *
 
-np.random.seed(42)
-
 # if machine has multiple GPUs only use first one
 #os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 #os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -34,7 +32,7 @@ class Struct:
         self.__dict__.update(entries)
 
 
-def main(perc_l1=10, perc_l2=10, n_sessions=10):
+def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_path=None, constant=True):
 
     # check that we have access to a GPU and that we only use one!
     if tf.test.gpu_device_name():
@@ -62,7 +60,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10):
     n_train = len(bin_X_train)
 
     # path to where models shall be saved
-    model_path = os.path.join('..', 'models', 'MNIST', f'heuristicFI_{perc}perc_{n_sessions}sessions')
+    model_path = os.path.join('..', 'models', 'MNIST', f'seed{random_seed}', f'heuristicFI_{perc_l2}perc_{n_sessions}sessions')
     res_path = os.path.join(model_path,'res')
 
     assert not os.path.exists(model_path), "model path already exists - abort"
@@ -72,10 +70,8 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10):
     copy(path, res_path+'/script.py')
 
     # LOAD MODEL
-    args = get_initial_args()
-    dbm = get_initial_DBM()
-    rbm1 = load_rbm1(Struct(**args))
-    rbm2 = load_rbm2(Struct(**args))
+    args = get_initial_args(model_path=initial_model_path, random_seed=random_seed)
+    dbm = load_dbm_withoutRBMs(Struct(**args))  # otherwise the weights are set to the RBM weights before joint training
 
     weights = dbm.get_tf_params(scope='weights')
     W1 = weights['W']
@@ -83,13 +79,6 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10):
     W2 = weights['W_1']
     hb2 = weights['hb_1']
     vb = weights['vb']
-
-    # adjust parameters of rbm2 to the current ones:
-    rbm2.set_params(initialized_=False)
-    rbm2.set_params(vb_init=hb1)
-    rbm2.set_params(hb_init=hb2)
-    rbm2.set_params(W_init=W2)
-    rbm2.init()
 
     masks = dbm.get_tf_params(scope='masks')
     rf_mask1 = masks['rf_mask']
@@ -101,7 +90,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10):
     USE_VAR = False
 
     # Delete all with an FI of zero (true) or constantly x percent of weights (false)?
-    DEL_ALL0 = True
+    DEL_ALL0 = not constant
 
     # multiply FI by weight
     TIMES_W = False
@@ -750,7 +739,13 @@ if __name__ == '__main__':
     parser.add_argument('percentile_l1', default=10, nargs='?', help='Percentage of weights removed in layer 1 in each iteration', type=int, choices=range(1, 100))
     parser.add_argument('percentile_l2', default=10, nargs='?', help='Percentage of weights removed in layer 1 in each iteration', type=int, choices=range(1, 100))
     parser.add_argument('n_pruning_session', default=10, nargs='?', help='Number of pruning sessions', type=check_positive)
+    parser.add_argument('seed', default=42, nargs='?', help='Random seed', type=int)
 
     args = parser.parse_args()
 
-    main(args.percentile_l1, args.percentile_l2, args.n_pruning_session)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
+
+    initial_model_path = os.path.join('..', 'models', 'MNIST', 'initial_'+str(args.seed)) 
+
+    main(args.percentile_l1, args.percentile_l2, args.n_pruning_session, args.seed, initial_model_path)
