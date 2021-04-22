@@ -170,7 +170,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
         if DEL_ALL0: # delete all weights that have an FI of zero
             print('All weights that have 0 info will be deleted')
 
-            if sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0) > THR_L1*sum(fi_weights1[np.where(temp_mask!=0)].flatten()!=0):
+            if sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0) > THR_L1*len(temp_mask[temp_mask!=0].flatten()):
                 print("More than",THR_L1*100,"% parameters with FI = 0, all of them are pruned.")
 
                 print(sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0), "weights of a total of",
@@ -194,7 +194,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
                 keep = np.reshape(fi_weights1, (nv, nh1)) > perc
 
         else: # delete only THR percent of weights (even if percentile is 0)
-            if sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0) > THR_L1*sum(fi_weights1[np.where(temp_mask!=0)].flatten()!=0):
+            if sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0) > THR_L1*len(temp_mask[temp_mask!=0].flatten()):
                 print("More than",THR_L1*100,"% parameters with FI = 0, randomly select", THR_L1*100, "% of these.")
 
                 # make a copy of the array
@@ -214,7 +214,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
 
                 keep = temp_mask.flatten()
                 keep[selected_10_percent] = False # set them to false
-                keep = keep.reshape(nv, nh1)
+                keep = keep.reshape((nv, nh1))
 
             else:
                 print("Prune",THR_L1, "lowest percentile of weights with lowest FI")
@@ -281,7 +281,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
 
         if DEL_ALL0:
 
-            if sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0) > THR_L2*sum(fi_weights2[np.where(temp_mask!=0)].flatten()!=0):
+            if sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0) > THR_L2*len(temp_mask[temp_mask!=0].flatten()):
                 print("More than",THR_L2*100,"% parameters with FI = 0, all of them are pruned.")
 
                 print(sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0), "weights of a total of",
@@ -305,7 +305,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
                 keep = np.reshape(fi_weights2, (nh1, nh2)) > perc
 
         else:
-            if sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0) > THR_L2*sum(fi_weights2[np.where(temp_mask!=0)].flatten()!=0):
+            if sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0) > THR_L2*len(temp_mask[temp_mask!=0].flatten()):
                 print("More than",THR_L2*100,"% parameters with FI = 0, randomly select", THR_L2*100, "of weights.")
 
                 # make a copy of the array
@@ -327,7 +327,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
 
                 keep = temp_mask.flatten()
                 keep[selected_10_percent] = False # set them to false
-                keep = keep.reshape(nh1, nh2)
+                keep = keep.reshape((nh1, nh2))
 
             else:
                 print("Prune",THR_L2, "lowest percentile of weights with lowest FI")

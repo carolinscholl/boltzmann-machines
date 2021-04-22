@@ -175,7 +175,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
         if WEIGHT_MAG: # take absolute values of weights
             abs_weights = np.abs(new_weights)
 
-        if sum(abs_weights[np.where(temp_mask!=0)].flatten()==0) > THR_L1*sum(abs_weights[np.where(temp_mask!=0)].flatten()!=0):
+        if sum(abs_weights[np.where(temp_mask!=0)].flatten()==0) > THR_L1*len(abs_weights[temp_mask!=0].flatten()):
             print("More than",THR_L1*100,"% parameters whose value is 0, randomly select", THR_L1*100, "% of these.")
 
             # make a copy of the array
@@ -260,7 +260,8 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
         if WEIGHT_MAG: # take absolute values of weights
             abs_weights = np.abs(new_weights)
 
-        if sum(abs_weights[np.where(temp_mask!=0)].flatten()==0) > THR_L2*sum(abs_weights[np.where(temp_mask!=0)].flatten()!=0):
+        if sum(abs_weights[np.where(temp_mask!=0)].flatten()==0) > THR_L2*len(abs_weights[temp_mask!=0].flatten()):
+        
             print("More than",THR_L2*100,"% parameters whose value is 0, randomly select", THR_L2*100, "% of these.")
 
             # make a copy of the array
