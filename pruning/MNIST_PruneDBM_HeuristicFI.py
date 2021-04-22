@@ -184,7 +184,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
 
         if DEL_ALL0: # delete all weights that have an FI of zero
 
-            if sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0) > THR_L1*sum(fi_weights1[np.where(temp_mask!=0)].flatten()!=0):
+            if sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0) > THR_L1*len(fi_weights1[np.where(temp_mask!=0)].flatten()!=0):
                 print("More than",THR_L1*100,"% parameters with FI = 0, all of them are pruned.")
 
                 print(sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0), "weights of a total of",
@@ -208,7 +208,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
                 keep = np.reshape(fi_weights1, (nv, nh1)) > perc
 
         else: # delete only THR percent of weights (even if percentile is 0)
-            if sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0) > THR_L1*sum(fi_weights1[np.where(temp_mask!=0)].flatten()!=0):
+            if sum(fi_weights1[np.where(temp_mask!=0)].flatten()==0) > THR_L1*len(fi_weights1[np.where(temp_mask!=0)].flatten()!=0):
                 print("More than",THR_L1*100,"% parameters with FI = 0, randomly select", THR_L1*100, "% of these.")
 
                 # make a copy of the array
@@ -297,7 +297,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
 
         if DEL_ALL0:
 
-            if sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0) > THR_L2*sum(fi_weights2[np.where(temp_mask!=0)].flatten()!=0):
+            if sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0) > THR_L2*len(fi_weights2[np.where(temp_mask!=0)].flatten()!=0):
                 print("More than",THR_L2*100,"% parameters with FI = 0, all of them are pruned.")
 
                 print(sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0), "weights of a total of",
@@ -321,7 +321,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
                 keep = np.reshape(fi_weights2, (nh1, nh2)) > perc
 
         else:
-            if sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0) > THR_L2*sum(fi_weights2[np.where(temp_mask!=0)].flatten()!=0):
+            if sum(fi_weights2[np.where(temp_mask!=0)].flatten()==0) > THR_L2*len(fi_weights2[np.where(temp_mask!=0)].flatten()!=0):
                 print("More than",THR_L2*100,"% parameters with FI = 0, randomly select", THR_L2*100, "% of these.")
                 # make a copy of the array
                 copy_fi = deepcopy(fi_weights2)
