@@ -78,13 +78,26 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3, see
         print("Cannot find CIFAR image data, please run data/fetch_cifar10.sh first")
         return
 
-    X_train = data[np.random.permutation(data.shape[0])[:n_train],:]
-    X_val = data[np.random.permutation(data.shape[0])[:n_val],:]
-
-    nv = X_train.shape[1] # visible layer size = pixels in radius of CIFAR circles
+    nv = data.shape[1] # visible layer size = pixels in radius of CIFAR circles
     nh = n_hidden # number of hidden units
     session = 0 # before pruning
     n_sessions = n_pruning_session # number of pruning sessions
+
+    if not os.path.exists('..', 'data', f'train_data_indices_{nv}nv.npy'):
+        selected_training_indices = np.random.permutation(data.shape[0])[:n_train]
+        np.save('..', 'data', f'train_data_indices_{nv}nv.npy', selected_training_indices)
+    else:
+        selected_training_indices = np.load('..', 'data', f'train_data_indices_{nv}nv.npy')
+    
+    if not os.path.exists('..', 'data', f'val_data_indices_{nv}nv.npy'):
+        left_indices = set(np.random.permutation(data.shape[0])) - set(selected_training_indices)
+        selected_validation_indices = np.random.choice(np.array(list(left_indices)), n_val, replace=False)
+        np.save('..', 'data', f'val_data_indices_{nv}nv.npy', selected_validation_indices)
+    else:
+        selected_validation_indices = np.load('..', 'data', f'val_data_indices_{nv}nv.npy')
+
+    X_train = data[selected_training_indices, :]
+    X_val = data[selected_validation_indices, :]
 
     # create results paths
     top_folder = os.path.join('..', 'models', 'CIFAR','{}v'.format(nv)+'{}h'.format(nh)+'seed{}'.format(seed))
