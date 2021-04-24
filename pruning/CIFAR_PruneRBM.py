@@ -15,8 +15,6 @@ from rbm_utils.fimdiag import * # functions to compute the diagonal of the FIM f
 from copy import deepcopy
 import argparse
 
-np.random.seed(42)
-
 # if machine has multiple GPUs only use first one
 #os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 #os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -24,6 +22,7 @@ np.random.seed(42)
 class Struct:
     def __init__(self, **entries):
         self.__dict__.update(entries)
+
 
 def save_res(results_path, params=None, indices_hiddens=None, samples=None, mask=None,fi=None):
     '''
@@ -47,7 +46,8 @@ def save_res(results_path, params=None, indices_hiddens=None, samples=None, mask
     if samples is not None:
         np.save(results_path+'samples.npy', np.array(samples).astype(np.bool))
 
-def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3):
+
+def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3, seed=42):
 
     # check that we have access to a GPU 
     if tf.test.gpu_device_name():
@@ -87,7 +87,7 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3):
     n_sessions = n_pruning_session # number of pruning sessions
 
     # create results paths
-    top_folder = os.path.join('..', 'models', 'CIFAR','{}v'.format(nv)+'{}h'.format(nh))
+    top_folder = os.path.join('..', 'models', 'CIFAR','{}v'.format(nv)+'{}h'.format(nh)+'seed{}'.format(seed))
     if not os.path.exists(top_folder):
         os.makedirs(top_folder)
     
@@ -95,7 +95,7 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3):
     assert not os.path.exists(model_path), "model path already exists - abort"
     os.mkdir(model_path)
 
-    compare_path = os.path.join(top_folder, 'Initial{}v{}h/'.format(nv,nh))
+    compare_path = os.path.join(top_folder, 'Initial{}v{}h/'.format(nv, nh))
     if os.path.exists(compare_path):
         initial_exists= True
     else:
@@ -112,7 +112,7 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3):
         args['n_visible'] = nv
         args['prune']=True
         args['filter_shape']=None
-        args['freeze_weights']=None # will be initialized with mask of ones
+        args['freeze_weights']=None  # will be initialized with mask of ones
         args['w_init'] = 0.1*1 
         args['vb_init'] = logit_mean(X_train) 
         args['hb_init'] = -2.0
@@ -123,11 +123,12 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3):
         args['l2'] = 0 
         args['momentum'] = 0.9
         args['sample_v_states'] = True
+        args['save_after_each_epoch'] = False
         args['dropout'] = None
         args['sparsity_target'] = 0.1
         args['sparsity_cost'] = 0 
         args['sparsity_damping'] = 0.9
-        args['random_seed'] = 666
+        args['random_seed'] = seed
         args['dtype'] = 'float32'
         args['model_dirpath'] = os.path.join(compare_path,'{}v{}h_session{}/'.format(nv, nh, session))
         print('learning rates: ',args['lr'])
@@ -418,7 +419,7 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3):
         new_weights[keep==0]=0
         new_hb = hb[indices_of_left_hiddens]
 
-        args['model_dirpath'] = os.path.join(model_path,'{}v{}h_session{}/'.format(nv,nh,sess+1))
+        args['model_dirpath'] = os.path.join(model_path,'{}v{}h_session{}/'.format(nv, nh, sess+1))
         args['vb_init']= vb
         args['hb_init']= new_hb
         args['prune']=True
@@ -461,7 +462,6 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3):
         nh = active_nh
 
 
-
 if __name__ == '__main__':
 
     def check_positive(value):
@@ -490,7 +490,10 @@ if __name__ == '__main__':
     parser.add_argument('percentile', default=50, nargs='?', help='Percentage of weights removed in each iteration', type=int, choices=range(1, 100))
     parser.add_argument('n_hidden', default=70, nargs='?', help='Number of hidden units', type=check_positive)
     parser.add_argument('n_pruning_session', default=3, nargs='?', help='Number of pruning sessions', type=check_positive)
+    parser.add_argument('seed', default=42, nargs='?', help='Random seed', type=int)
 
     args = parser.parse_args()
 
-    main(args.pruning_criterion, args.percentile, args.n_hidden, args.n_pruning_session)
+    np.random.seed(args.seed)
+
+    main(args.pruning_criterion, args.percentile, args.n_hidden, args.n_pruning_session, args.seed)
