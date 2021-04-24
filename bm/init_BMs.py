@@ -370,7 +370,7 @@ def init_rbm(args): # initializes standard RBM
                            n_batches_for_feg=10,
                        ),
                        verbose=True,
-                       random_seed=args.random_seed[0],
+                       random_seed=args.random_seed,
                        dtype=args.dtype,
                        tf_saver_params=dict(max_to_keep=1),
                        model_path=args.model_dirpath)
