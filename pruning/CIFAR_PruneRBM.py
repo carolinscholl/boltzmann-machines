@@ -83,18 +83,17 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3, see
     session = 0 # before pruning
     n_sessions = n_pruning_session # number of pruning sessions
 
-    if not os.path.exists('..', 'data', f'train_data_indices_{nv}nv.npy'):
+    if not os.path.exists(os.path.join('..', 'data', f'cifar_train_data_indices_{nv}pixel.npy')):
         selected_training_indices = np.random.permutation(data.shape[0])[:n_train]
-        np.save('..', 'data', f'train_data_indices_{nv}nv.npy', selected_training_indices)
+        np.save(os.path.join('..', 'data', f'cifar_train_data_indices_{nv}pixel.npy'), selected_training_indices)
     else:
-        selected_training_indices = np.load('..', 'data', f'train_data_indices_{nv}nv.npy')
-    
-    if not os.path.exists('..', 'data', f'val_data_indices_{nv}nv.npy'):
+        selected_training_indices = np.load(os.path.join('..', 'data', f'cifar_train_data_indices_{nv}pixel.npy'))
+    if not os.path.exists(os.path.join('..', 'data', f'cifar_val_data_indices_{nv}pixel.npy')):
         left_indices = set(np.random.permutation(data.shape[0])) - set(selected_training_indices)
         selected_validation_indices = np.random.choice(np.array(list(left_indices)), n_val, replace=False)
-        np.save('..', 'data', f'val_data_indices_{nv}nv.npy', selected_validation_indices)
+        np.save(os.path.join(os.path.join('..', 'data', f'val_data_indices_{nv}pixel.npy')), selected_validation_indices)
     else:
-        selected_validation_indices = np.load('..', 'data', f'val_data_indices_{nv}nv.npy')
+        selected_validation_indices = np.load(os.path.join('..', 'data', f'val_data_indices_{nv}pixel.npy'))
 
     X_train = data[selected_training_indices, :]
     X_val = data[selected_validation_indices, :]
