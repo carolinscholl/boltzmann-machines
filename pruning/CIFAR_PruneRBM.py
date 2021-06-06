@@ -397,6 +397,21 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3, see
             keep[selected] = False # set them to false
             keep = keep.reshape(nv, nh)
 
+        elif pruning_criterion == 'RANDOMLY_REMOVE_NEURONS':
+            print("Randomly remove", percentile, " percent of hidden neurons")
+
+            if sess >0: # in session 0 we take the fi computed above
+                var_est, heu_est = FI_weights_var_heur_estimates(s, nv, nh, w)
+
+            fi_weights = var_est.reshape((nh,nv)).T * temp_mask
+            fim_diag = deepcopy(fi_weights) # we save this to look at it over time
+
+            n_to_remove = int(nh * percentile)
+            selected_to_remove = np.random.choice(range(nh), n_to_remove, replace=False)
+
+            keep = keep.reshape(nv, nh)
+            keep[:, selected_to_remove] = False
+
         keep[temp_mask==0]=0 # these weights don't exist anyways
 
         # check how many hidden units in first layer are still connected
@@ -485,6 +500,7 @@ if __name__ == '__main__':
     def check_validity_pruning_criterion(value):
         valid_pruning_criteria = {'ANTI': 'Prune most important weights according to FIM diagonal',
                               'RANDOM': 'Randomly prune weights',
+                              'RANDOMLY_REMOVE_NEURONS': 'Randomly remove whole hidden units',
                               'WEIGHTMAG': 'Prune weights with smallest magnitude', 
                               'FIM_EIGENVECTOR': 'Prune least important weights according to first eigenvector of FIM',
                               'FI_DIAG': 'Prune least important weights according to FIM diagonal', 
