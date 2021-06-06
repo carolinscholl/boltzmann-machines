@@ -399,14 +399,15 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3, see
 
         elif pruning_criterion == 'RANDOMLY_REMOVE_NEURONS':
             print("Randomly remove", percentile, " percent of hidden neurons")
-
+                        
             if sess >0: # in session 0 we take the fi computed above
                 var_est, heu_est = FI_weights_var_heur_estimates(s, nv, nh, w)
 
             fi_weights = var_est.reshape((nh,nv)).T * temp_mask
             fim_diag = deepcopy(fi_weights) # we save this to look at it over time
 
-            n_to_remove = int(nh * percentile)
+            n_to_remove = int(nh * percentile/100)
+            print("remove ", n_to_remove, "hidden units from", nh, " remaining hidden units")
             selected_to_remove = np.random.choice(range(nh), n_to_remove, replace=False)
 
             keep = keep.reshape(nv, nh)
