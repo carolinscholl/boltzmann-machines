@@ -399,7 +399,7 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3, see
 
         elif pruning_criterion == 'RANDOMLY_REMOVE_NEURONS':
             print("Randomly remove", percentile, " percent of hidden neurons")
-                        
+
             if sess >0: # in session 0 we take the fi computed above
                 var_est, heu_est = FI_weights_var_heur_estimates(s, nv, nh, w)
 
@@ -410,7 +410,7 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3, see
             print("remove ", n_to_remove, "hidden units from", nh, " remaining hidden units")
             selected_to_remove = np.random.choice(range(nh), n_to_remove, replace=False)
 
-            keep = keep.reshape(nv, nh)
+            keep = np.ones((nv, nh))
             keep[:, selected_to_remove] = False
 
         keep[temp_mask==0]=0 # these weights don't exist anyways
