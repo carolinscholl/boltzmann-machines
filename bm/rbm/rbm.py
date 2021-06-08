@@ -1,6 +1,12 @@
 import numpy as np
-import tensorflow as tf
-from tensorflow.contrib.distributions import Multinomial
+#import tensorflow as tf
+#from tensorflow.contrib.distributions import Multinomial
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+from tensorflow.core.framework import summary_pb2
+#from tensorflow.contrib.distributions import Bernoulli
+import tensorflow_probability as tfp
+Multinomial = tfp.distributions.Multinomial
 
 from . import env
 from .base_rbm import BaseRBM

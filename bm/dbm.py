@@ -1,7 +1,12 @@
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 from tensorflow.core.framework import summary_pb2
-from tensorflow.contrib.distributions import Bernoulli
+#from tensorflow.contrib.distributions import Bernoulli
+import tensorflow_probability as tfp
+Bernoulli = tfp.distributions.Bernoulli
+#from tensorflow_probability.distributions import Bernoulli
 
 from .base.tf_model import run_in_tf_session
 from .ebm import EnergyBasedModel
@@ -376,9 +381,9 @@ class DBM(EnergyBasedModel):
         # initialize variational parameters
         with tf.name_scope('variational_params'):
             for i in range(self.n_layers_):
-                t = tf.zeros([self._batch_size, self.n_hiddens_[i]], dtype=self._tf_dtype)
+                t = tf.zeros(tf.stack([self._batch_size, self.n_hiddens_[i]]), dtype=self._tf_dtype)
                 mu = tf.Variable(t, name='mu')
-                t_new = tf.zeros([self._batch_size, self.n_hiddens_[i]], dtype=self._tf_dtype)
+                t_new = tf.zeros(tf.stack([self._batch_size, self.n_hiddens_[i]]), dtype=self._tf_dtype)
                 mu_new = tf.Variable(t_new, name='mu_new')
                 tf.summary.histogram('mu_hist', mu)
                 self._mu.append(mu)
@@ -387,9 +392,9 @@ class DBM(EnergyBasedModel):
         # initialize running means of hidden activations means
         with tf.name_scope('hidden_means_accumulators'):
             for i in range(self.n_layers_):
-                T = tf.Variable(tf.zeros([self.n_hiddens_[i]], dtype=self._tf_dtype), name='q_means')
+                T = tf.Variable(tf.zeros(tf.stack([self.n_hiddens_[i]]), dtype=self._tf_dtype), name='q_means')
                 self._q_means.append(T)
-                S = tf.Variable(tf.zeros([self.n_hiddens_[i]], dtype=self._tf_dtype), name='mu_means')
+                S = tf.Variable(tf.zeros(tf.stack([self.n_hiddens_[i]]), dtype=self._tf_dtype), name='mu_means')
                 self._mu_means.append(S)
 
         # initialize negative particles
@@ -748,7 +753,7 @@ class DBM(EnergyBasedModel):
         with tf.name_scope('annealed_importance_sampling'):
 
             # x_0 ~ Ber(0.5) of size (M, H_1)
-            logits = tf.zeros([self._n_ais_runs, self._n_hiddens[0]])
+            logits = tf.zeros(tf.stack([self._n_ais_runs, self._n_hiddens[0]]))
             T = Bernoulli(logits=logits).sample(seed=self.make_random_seed())
             x_0 = tf.cast(T, dtype=self._tf_dtype)
 
@@ -1066,13 +1071,13 @@ class DBM(EnergyBasedModel):
         with tf.name_scope('gibbs_chain'):
 
             for i in range(self.n_layers):
-                logits = tf.zeros([self._n_runs, self._n_hiddens[i]])
+                logits = tf.zeros(tf.stack([self._n_runs, self._n_hiddens[i]]))
                 T = Bernoulli(logits=logits).sample(seed=self.make_random_seed())
 
                 self._H[i].assign(tf.cast(T, self._tf_dtype))
                 self._H_new[i].assign(tf.cast(T,self._tf_dtype))
 
-            logits = tf.zeros([self._n_runs, self._n_visible])
+            logits = tf.zeros(tf.stack([self._n_runs, self._n_visible]))
             T = Bernoulli(logits=logits).sample(seed=self.make_random_seed())
 
             self._v.assign(tf.cast(T, self._tf_dtype))

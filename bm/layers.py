@@ -1,6 +1,14 @@
 import numpy as np
-import tensorflow as tf
-from tensorflow.contrib.distributions import Bernoulli, Multinomial, Normal
+#import tensorflow as tf
+#from tensorflow.contrib.distributions import Bernoulli, Multinomial, Normal
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+from tensorflow.core.framework import summary_pb2
+#from tensorflow.contrib.distributions import Bernoulli
+import tensorflow_probability as tfp
+Bernoulli = tfp.distributions.Bernoulli
+Multinomial = tfp.distributions.Multinomial
+Normal  = tfp.distributions.Normal
 
 from .base import DtypeMixin
 

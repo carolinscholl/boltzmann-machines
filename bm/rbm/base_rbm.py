@@ -1,7 +1,13 @@
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
 from tensorflow.core.framework import summary_pb2
-from tensorflow.contrib.distributions import Bernoulli
+#from tensorflow.contrib.distributions import Bernoulli
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+from tensorflow.core.framework import summary_pb2
+#from tensorflow.contrib.distributions import Bernoulli
+import tensorflow_probability as tfp
+Bernoulli = tfp.distributions.Bernoulli
 
 from bm import EnergyBasedModel
 from bm.base.tf_model import run_in_tf_session
@@ -444,11 +450,11 @@ class BaseRBM(EnergyBasedModel):
         # initialize gradients accumulators
         with tf.name_scope('grads_accumulators'):
             dW_init = tf.constant(self._dW_init, dtype=self._tf_dtype) if self._dW_init is not None else \
-                      tf.zeros([self._n_visible, self._n_hidden], dtype=self._tf_dtype)
+                      tf.zeros(tf.stack([self._n_visible, self._n_hidden]), dtype=self._tf_dtype)
             dvb_init = tf.constant(self._dvb_init, dtype=self._tf_dtype) if self._dvb_init is not None else \
-                       tf.zeros([self._n_visible], dtype=self._tf_dtype)
+                       tf.zeros(tf.stack([self._n_visible]), dtype=self._tf_dtype)
             dhb_init = tf.constant(self._dhb_init, dtype=self._tf_dtype) if self._dhb_init is not None else \
-                       tf.zeros([self._n_hidden], dtype=self._tf_dtype)
+                       tf.zeros(tf.stack([self._n_hidden]), dtype=self._tf_dtype)
 
             dW_init = tf.identity(dW_init, name='W_init')
 
@@ -472,7 +478,7 @@ class BaseRBM(EnergyBasedModel):
 
         # initialize running means of hidden activations means
         with tf.name_scope('hidden_activations_means'):
-            self._q_means = tf.Variable(tf.zeros([self._n_hidden], dtype=self._tf_dtype), name='q_means')
+            self._q_means = tf.Variable(tf.zeros(tf.stack([self._n_hidden]), dtype=self._tf_dtype), name='q_means')
 
     def _propup(self, v):
         with tf.name_scope('prop_up'):
@@ -708,11 +714,11 @@ class BaseRBM(EnergyBasedModel):
 
         with tf.name_scope('gibbs_chain'):
 
-            logits = tf.zeros([self._n_runs, self._n_hidden])
+            logits = tf.zeros(tf.stack([self._n_runs, self._n_hidden]))
             T = Bernoulli(logits=logits).sample(seed=self.make_random_seed())
             self._H = tf.cast(T, dtype=self._tf_dtype)
             self._H_new = tf.cast(T, dtype=self._tf_dtype)
-            logits = tf.zeros([self._n_runs, self._n_visible])
+            logits = tf.zeros(tf.stack([self._n_runs, self._n_visible]))
             T = Bernoulli(logits=logits).sample(seed=self.make_random_seed())
             self._v = tf.cast(T, dtype=self._tf_dtype)
             self._v_new = tf.cast(T, dtype=self._tf_dtype)

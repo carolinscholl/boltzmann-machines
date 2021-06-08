@@ -2,9 +2,25 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import os
+
+# if machine has multiple GPUs only use first one
+os.environ["CUDA_VISIBLE_DEVICES"]=""
+#os.environ["KMP_BLOCKTIME"] = "0"
+#os.environ["KMP_SETTINGS"] = "TRUE"
+# os.environ["KMP_AFFINITY"] = "granularity=fine,compact,1,0"
+os.environ["TF_XLA_FLAGS"]="--tf_xla_cpu_global_jit --tf_xla_enable_xla_devices"
+#os.environ["MKL_NUM_THREADS"] = "12" 
+#os.environ["NUMEXPR_NUM_THREADS"] = "12" 
+#os.environ["OMP_NUM_THREADS"] = "12"
+#os.environ["OPENBLAS_NUM_THREADS"] = "12"
+#os.environ["VECLIB_MAXIMUM_THREADS"] = "12"
+
 import sys
 import env
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+
 import numpy as np
 import pickle
 from bm.dbm import DBM
@@ -23,18 +39,6 @@ from sklearn.linear_model import LogisticRegression
 import joblib
 from pruning.MNIST_Baselines import *
 
-# if machine has multiple GPUs only use first one
-#os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-#os.environ["CUDA_VISIBLE_DEVICES"]="0"
-os.environ["KMP_BLOCKTIME"] = "0" 
-os.environ["KMP_SETTINGS"] = "TRUE"
-# os.environ["KMP_AFFINITY"] = "granularity=fine,compact,1,0"
-os.environ["TF_XLA_FLAGS"]="--tf_xla_cpu_global_jit"
-os.environ["MKL_NUM_THREADS"] = "15" 
-os.environ["NUMEXPR_NUM_THREADS"] = "15" 
-os.environ["OMP_NUM_THREADS"] = "15"
-os.environ["OPENBLAS_NUM_THREADS"] = "15"
-os.environ["VECLIB_MAXIMUM_THREADS"] = "15"
 
 class Struct:
     def __init__(self, **entries):
@@ -44,7 +48,7 @@ class Struct:
 def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_path=None, constant=True,
          evaluate_immediately_after_pruning=False, batch=1):
 
-    tf.logging.set_verbosity(tf.logging.ERROR)
+    #tf.logging.set_verbosity(tf.logging.ERROR)
     
     # check that we have access to a GPU and that we only use one!
     if tf.test.gpu_device_name():
@@ -74,7 +78,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
     n_train = len(bin_X_train)
 
     # path to where models shall be saved
-    model_path = os.path.join('..', 'models', 'MNIST', f'seed{random_seed}', f'varianceFI_{perc_l1}perc_{perc_l2}perc_{n_sessions}sessions_{MAX_EPOCH}epoch_{batch}batch')
+    model_path = os.path.join('..', 'models', 'MNIST', f'seed{random_seed}_june', f'varianceFI_{perc_l1}perc_{perc_l2}perc_{n_sessions}sessions_{MAX_EPOCH}epoch_{batch}batch_{constant}constant')
     res_path = os.path.join(model_path,'res')
     res_path = os.path.join(model_path,'res')
 
@@ -104,6 +108,8 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
 
     # Delete all with an FI of zero (true) or constantly x percent of weights (false)?
     DEL_ALL0 = not constant
+
+    print('DEL_ALL0: ',DEL_ALL0)
 
     # multiply FI by weight
     TIMES_W = False
@@ -729,7 +735,9 @@ if __name__ == '__main__':
     parser.add_argument('n_pruning_session', default=10, nargs='?', help='Number of pruning sessions', type=check_positive)
     parser.add_argument('seed', default=42, nargs='?', help='Random seed', type=int)
     parser.add_argument('batch', default=1, nargs='?', help='Batch size', type=int)
-
+    parser.add_argument('--constant', dest='constant', action='store_true')
+    parser.add_argument('--no-constant', dest='constant', action='store_false')
+    parser.set_defaults(constant=False)
     args = parser.parse_args()
 
     np.random.seed(args.seed)
@@ -737,4 +745,4 @@ if __name__ == '__main__':
 
     initial_model_path = os.path.join('..', 'models', 'MNIST', 'initial_'+str(args.seed)) 
 
-    main(args.percentile_l1, args.percentile_l2, args.n_pruning_session, args.seed, initial_model_path, constant=True, batch=args.batch)
+    main(args.percentile_l1, args.percentile_l2, args.n_pruning_session, args.seed, initial_model_path, constant=args.constant, batch=args.batch)

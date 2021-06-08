@@ -3,7 +3,9 @@ import os
 from bm.rbm.rbm import BernoulliRBM, logit_mean
 from bm.dbm import DBM
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 def load_rbm1(args):
     if os.path.isdir(args.rbm1_dirpath):
