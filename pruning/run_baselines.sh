@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 export KMP_BLOCKTIME=1
-export OMP_NUM_THREADS=10
+export OMP_NUM_THREADS=48
 export KMP_SETTINGS=TRUE
-export KMP_AFFINITY=granularity=fine
+export KMP_AFFINITY=granularity=fine,compact
 
 echo > working.sh
 

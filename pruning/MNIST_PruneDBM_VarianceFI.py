@@ -26,15 +26,26 @@ from pruning.MNIST_Baselines import *
 # if machine has multiple GPUs only use first one
 #os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 #os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["KMP_BLOCKTIME"] = "0" 
+os.environ["KMP_SETTINGS"] = "TRUE"
+# os.environ["KMP_AFFINITY"] = "granularity=fine,compact,1,0"
+os.environ["TF_XLA_FLAGS"]="--tf_xla_cpu_global_jit"
+os.environ["MKL_NUM_THREADS"] = "15" 
+os.environ["NUMEXPR_NUM_THREADS"] = "15" 
+os.environ["OMP_NUM_THREADS"] = "15"
+os.environ["OPENBLAS_NUM_THREADS"] = "15"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "15"
 
 class Struct:
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
 
-def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_path=None, constant=True, 
-         evaluate_immediately_after_pruning=False):
+def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_path=None, constant=True,
+         evaluate_immediately_after_pruning=False, batch=1):
 
+    tf.logging.set_verbosity(tf.logging.ERROR)
+    
     # check that we have access to a GPU and that we only use one!
     if tf.test.gpu_device_name():
         print('Default GPU Device: {}'.format(tf.test.gpu_device_name()))
@@ -50,6 +61,8 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
 
     logreg_digits = get_classifier_trained_on_raw_digits()
 
+    MAX_EPOCH = 10
+    
     # Load MNIST
     print("\nPreparing data ...\n\n")
     train, test = preprocess_MNIST()
@@ -61,7 +74,8 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
     n_train = len(bin_X_train)
 
     # path to where models shall be saved
-    model_path = os.path.join('..', 'models', 'MNIST', f'seed{random_seed}', f'varianceFI_{perc_l2}perc_{n_sessions}sessions')
+    model_path = os.path.join('..', 'models', 'MNIST', f'seed{random_seed}', f'varianceFI_{perc_l1}perc_{perc_l2}perc_{n_sessions}sessions_{MAX_EPOCH}epoch_{batch}batch')
+    res_path = os.path.join(model_path,'res')
     res_path = os.path.join(model_path,'res')
 
     assert not os.path.exists(model_path), "model path already exists - abort"
@@ -72,6 +86,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
 
     # LOAD MODEL
     args = get_initial_args(model_path=initial_model_path, random_seed=random_seed)
+    args['batch_size'] = (batch, batch, batch)
     dbm = load_dbm_withoutRBMs(Struct(**args))  # otherwise the weights are set to the RBM weights before joint training
 
     weights = dbm.get_tf_params(scope='weights')
@@ -144,7 +159,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
 
     # retrain the DBMs for just 10 epochs instead of 20
     args['epochs'] = (20, 20, 10)
-    args['max_epoch'] = 10
+    args['max_epoch'] = MAX_EPOCH #10
 
     active_nh1 = nh1
 
@@ -713,6 +728,7 @@ if __name__ == '__main__':
     parser.add_argument('percentile_l2', default=10, nargs='?', help='Percentage of weights removed in layer 1 in each iteration', type=int, choices=range(1, 100))
     parser.add_argument('n_pruning_session', default=10, nargs='?', help='Number of pruning sessions', type=check_positive)
     parser.add_argument('seed', default=42, nargs='?', help='Random seed', type=int)
+    parser.add_argument('batch', default=1, nargs='?', help='Batch size', type=int)
 
     args = parser.parse_args()
 
@@ -721,4 +737,4 @@ if __name__ == '__main__':
 
     initial_model_path = os.path.join('..', 'models', 'MNIST', 'initial_'+str(args.seed)) 
 
-    main(args.percentile_l1, args.percentile_l2, args.n_pruning_session, args.seed, initial_model_path)
+    main(args.percentile_l1, args.percentile_l2, args.n_pruning_session, args.seed, initial_model_path, constant=True, batch=args.batch)
