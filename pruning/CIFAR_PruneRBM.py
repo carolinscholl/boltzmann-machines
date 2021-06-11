@@ -309,7 +309,7 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3, see
 
             keep = np.reshape(fi_weights, (nv, nh)) > perc
 
-        elif pruning_criterion == 'FIM_EIGENVECTOR':
+        elif pruning_criterion == 'FIM_ABS_EIGENVECTOR':
             # prune according to weight-specific entry of first eigenvector
             print('Weight pruning according to first eigenvector of FIM')
             fim = rbm_fim_numpy(s.astype(bool), nv) # nv = number of visible units
@@ -318,6 +318,7 @@ def main(pruning_criterion, percentile=50, n_hidden=70, n_pruning_session=3, see
 
             fi_weights = fim_weights[:,:,0] # take first eigenvector
             fi_weights = np.reshape(np.array(fi_weights), (nv,nh)) * temp_mask
+            fi_weights = abs(fi_weights)
 
             if sess >0: # in session 0 we take the fi computed above
                 var_est, heu_est = FI_weights_var_heur_estimates(s, nv, nh, w)
@@ -503,7 +504,7 @@ if __name__ == '__main__':
                               'RANDOM': 'Randomly prune weights',
                               'RANDOMLY_REMOVE_NEURONS': 'Randomly remove whole hidden units',
                               'WEIGHTMAG': 'Prune weights with smallest magnitude', 
-                              'FIM_EIGENVECTOR': 'Prune least important weights according to first eigenvector of FIM',
+                              'FIM_ABS_EIGENVECTOR': 'Prune least important weights according to first eigenvector of FIM',
                               'FI_DIAG': 'Prune least important weights according to FIM diagonal', 
                               'FI_DIAG_SQUARED': 'Prune least important weights according to square of FIM diagonal',
                               'HEURISTIC_DIAG': 'Prune least important weights according to heuristic FI estimate'}
