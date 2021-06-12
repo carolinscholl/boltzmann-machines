@@ -12,3 +12,4 @@ tensorflow-gpu==1.14.0
 tensorflow-probability==0.8.0
 tensorflow-estimator==1.14.0
 tqdm==4.42.0
+joblib==1.0.1
