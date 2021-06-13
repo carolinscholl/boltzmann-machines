@@ -256,7 +256,7 @@ def compute_accuracy_on_hidden_layer_representations(dbm):
     # run on cpu
     config = tf.ConfigProto(
         device_count = {'GPU': 0})
-    dbm_pruned._tf_session_config = config
+    dbm._tf_session_config = config
 
     # compute accuracy on transformed input digits (test set)
     final_train = dbm.transform(bin_X_train) 
