@@ -4,7 +4,7 @@
 # export KMP_SETTINGS=TRUE
 # export KMP_AFFINITY=granularity=fine,compact
 
-working_file=working3.sh
+working_file=working4.sh
 
 echo > $working_file
 
