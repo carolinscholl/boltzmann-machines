@@ -9,10 +9,11 @@ working_file=working3.sh
 echo > $working_file
 
 
-for i in $(seq 1 8)
+for i in $(seq 1 10)
 do
+   echo python MNIST_PruneDBM_RandomUnitRemoval.py 10 25 12 $i 10 >> $working_file
 #   echo python MNIST_PruneDBM_HeuristicFI.py 20 50 6 2 $i >> working.sh
-   echo python MNIST_PruneDBM_HeuristicFI.py 10 25 12 $i 10 --no-constant >> $working_file 
+#   echo python MNIST_PruneDBM_HeuristicFI.py 10 25 12 $i 10 --no-constant >> $working_file 
 #  echo python MNIST_PruneDBM_VarianceFI.py 10 25 12 $i 10 --no-constant >> working2.sh
 ##  echo python MNIST_PruneDBM_VarianceFI.py 5 25 12 $i 10 --no-constant >> working.sh
 #   echo python MNIST_PruneDBM_VarianceFI_allzero.py 10 25 6 $i 10 >> working.sh
@@ -21,6 +22,6 @@ do
 #   echo python MNIST_PruneDBM_HeuristicFI.py 10 20 12 2 $i >> working.sh
 done
 
-parallel -j 2 --tmuxpane --fg < $working_file
+parallel -j 4 --tmuxpane --fg < $working_file
 
 # rm working.sh
