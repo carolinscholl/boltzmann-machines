@@ -38,7 +38,6 @@ from sklearn.linear_model import LogisticRegression
 import joblib
 from pruning.MNIST_Baselines import *
 
-np.random.seed(42)
 
 # if machine has multiple GPUs only use first one
 #os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
@@ -51,6 +50,8 @@ class Struct:
 
 def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_path=None, 
          evaluate_immediately_after_pruning=False, batch=1):
+
+    np.random.seed(random_seed)
 
     # check that we have access to a GPU and that we only use one!
     if tf.test.gpu_device_name():
@@ -237,6 +238,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
         print(no_left_visible, "visible units are still connected by weights.", nv-no_left_visible, "unconnected visible units.")
 
         print("Indices of lost visibles:", indices_of_lost_visibles)
+        np.save(os.path.join(res_path, f'indices_of_lost_visibles_sess{it+1}.npy'), indices_of_lost_visibles)
 
         keep1 = keep # save mask
         new_weights1 = new_weights # save weights
@@ -576,6 +578,10 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
         np.save(os.path.join(res_path,'mean_activity_h1_both_Sess{}_retrained'.format(pruning_session)), mean_activity_h1)
         np.save(os.path.join(res_path,'mean_activity_h2_both_Sess{}_retrained'.format(pruning_session)), mean_activity_h2)
 
+        random_indices_samples = random.sample(range(s_v.shape[0]), 25) 
+        random_sample_v = s_v[random_indices_samples, :].astype('bool') # randomly select some visible samples
+        np.save(os.path.join(res_path, f'{it+1}_visible_samples_n25.npy')
+            
         samples = np.hstack((s_v, s_h1))
 
         # compute FI for first layer
