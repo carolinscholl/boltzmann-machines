@@ -580,8 +580,8 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
 
         random_indices_samples = random.sample(range(s_v.shape[0]), 25) 
         random_sample_v = s_v[random_indices_samples, :].astype('bool') # randomly select some visible samples
-        np.save(os.path.join(res_path, f'{it+1}_visible_samples_n25.npy')
-            
+        np.save(os.path.join(res_path, f'{it+1}_visible_samples_n25.npy'))
+
         samples = np.hstack((s_v, s_h1))
 
         # compute FI for first layer
