@@ -238,7 +238,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
         print(no_left_visible, "visible units are still connected by weights.", nv-no_left_visible, "unconnected visible units.")
 
         print("Indices of lost visibles:", indices_of_lost_visibles)
-        np.save(os.path.join(res_path, f'indices_of_lost_visibles_sess{it+1}.npy'), indices_of_lost_visibles)
+        np.save(os.path.join(res_path, f'indices_of_lost_visibles_sess{it+1}.npy'), np.array(indices_of_lost_visibles))
 
         keep1 = keep # save mask
         new_weights1 = new_weights # save weights
@@ -580,7 +580,7 @@ def main(perc_l1=10, perc_l2=10, n_sessions=10, random_seed=None, initial_model_
 
         random_indices_samples = random.sample(range(s_v.shape[0]), 25) 
         random_sample_v = s_v[random_indices_samples, :].astype('bool') # randomly select some visible samples
-        np.save(os.path.join(res_path, f'{it+1}_visible_samples_n25.npy'))
+        np.save(os.path.join(res_path, f'{it+1}_visible_samples_n25.npy'), random_sample_v)
 
         samples = np.hstack((s_v, s_h1))
 
